@@ -235,7 +235,7 @@ export default function DiariaPage() {
           <option value="">Selecione o grupo de diária</option>
           <option value="A">Grupo A</option>
           <option value="B">Grupo B</option>
-          <option value="C">Grupo C</option>
+          <option value="B Acompanhando A">B Acompanhando A</option>
         </select>
         {errors.grupo && <p style={{ color: "red" }}>{errors.grupo}</p>}
 

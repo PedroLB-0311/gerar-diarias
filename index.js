@@ -182,7 +182,7 @@ export default function DiariaPage() {
         section: { fontSize: 11, bold: true, margin: [0, 10, 0, 5] },
       },
       defaultStyle: { fontSize: 10 }
-    }).download("diaria_modelo_oficial_" + Servidor +".pdf");
+    }).download("diaria_modelo_oficial_.pdf");
   };
 
   return (
