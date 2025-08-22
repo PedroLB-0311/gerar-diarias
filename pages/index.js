@@ -336,17 +336,16 @@ export default function DiariaPage() {
             </div>
 
             <select
-              value={trip.transporte}
-              onChange={(e) => handleChange(e, index, "transporte")}
-              style={{ width: "100%", marginBottom: 8, padding: 6, borderRadius: 5 }}
-            >
-              <option value="">Selecione o Transporte</option>
-              <option value="Veículo Oficial">Veículo Oficial</option>
-              <option value="Veículo Particular">Veículo Particular</option>
-              <option value="Ônibus">Ônibus</option>
-              <option value="Outro">Outro</option>
-            </select>
-            {errors[`trip_${index}_transporte`] && <p style={{ color: "red" }}>{errors[`trip_${index}_transporte`]}</p>}
+  value={trip.transporte}
+  onChange={(e) => handleChange(e, index, "transporte")}
+  style={{ width: "100%", marginBottom: 8, padding: 6, borderRadius: 5 }}
+>
+  <option value="">Selecione o Transporte</option>
+  <option value="Veículo Oficial">Veículo Oficial</option>
+  <option value="Veículo Particular">Veículo Particular</option>
+</select>
+{errors[`trip_${index}_transporte`] && <p style={{ color: "red" }}>{errors[`trip_${index}_transporte`]}</p>}
+
 
             <input
               placeholder="Placa do Veículo"
