@@ -8,20 +8,29 @@ export default function DiariaPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [form, setForm] = useState({
     servidor: "",
+    cpf: "",
     cargo: "",
     matricula: "",
+    grupo: "",
     trips: [{
       destino: "",
+      distancia: "",
       saida: "",
       horaSaida: "",
       retorno: "",
       horaRetorno: "",
+      diaria04_08: false,
+      diariaAcima08: false,
+      outroEstado: false,
+      comPernoite: false,
+      transporte: "",
       placa: "",
       diaria: "",
       pernoite: "",
       justificativa: "",
     }],
   });
+
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
@@ -35,60 +44,10 @@ export default function DiariaPage() {
     }
   }, []);
 
-  const validatePlate = (plate) => {
-    const hasLetters = /[a-zA-Z]/.test(plate);
-    const hasNumbers = /[0-9]/.test(plate);
-    return hasLetters && hasNumbers;
-  };
-
-  const calculateNights = (saida, retorno) => {
-    if (!saida || !retorno) return 0;
-    const startDate = new Date(saida);
-    const endDate = new Date(retorno);
-    const diffTime = Math.abs(endDate - startDate);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return Math.max(0, diffDays);
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-    const requiredFields = ["servidor", "cargo", "matricula"];
-    
-    requiredFields.forEach((field) => {
-      if (!form[field]) {
-        newErrors[field] = "Este campo é obrigatório";
-      }
-    });
-
-    form.trips.forEach((trip, index) => {
-      const tripRequiredFields = ["destino", "saida", "horaSaida", "retorno", "horaRetorno", "placa", "diaria", "justificativa"];
-      tripRequiredFields.forEach((field) => {
-        if (!trip[field]) {
-          newErrors[`trip_${index}_${field}`] = "Este campo é obrigatório";
-        }
-      });
-
-      if (trip.placa && !validatePlate(trip.placa)) {
-        newErrors[`trip_${index}_placa`] = "A placa deve conter letras e números";
-      }
-
-      if (trip.saida && trip.retorno) {
-        const startDate = new Date(trip.saida);
-        const endDate = new Date(trip.retorno);
-        if (endDate < startDate) {
-          newErrors[`trip_${index}_retorno`] = "Data de retorno não pode ser anterior à data de saída";
-        }
-      }
-    });
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleChange = (e, tripIndex, field) => {
     if (tripIndex !== undefined) {
       const updatedTrips = [...form.trips];
-      updatedTrips[tripIndex] = { ...updatedTrips[tripIndex], [field]: e.target.value };
+      updatedTrips[tripIndex] = { ...updatedTrips[tripIndex], [field]: e.target.value ?? e.target.checked ?? e.target.value };
       setForm({ ...form, trips: updatedTrips });
       if (errors[`trip_${tripIndex}_${field}`]) {
         setErrors({ ...errors, [`trip_${tripIndex}_${field}`]: null });
@@ -106,382 +65,326 @@ export default function DiariaPage() {
       ...form,
       trips: [...form.trips, {
         destino: "",
+        distancia: "",
         saida: "",
         horaSaida: "",
         retorno: "",
         horaRetorno: "",
+        diaria04_08: false,
+        diariaAcima08: false,
+        outroEstado: false,
+        comPernoite: false,
+        transporte: "",
         placa: "",
         diaria: "",
         pernoite: "",
         justificativa: "",
-      }],
+      }]
     });
+  };
+
+  const calculateNights = (saida, retorno) => {
+    if (!saida || !retorno) return 0;
+    const startDate = new Date(saida);
+    const endDate = new Date(retorno);
+    const diffTime = Math.abs(endDate - startDate);
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!form.servidor) newErrors.servidor = "Campo obrigatório";
+    if (!form.cpf) newErrors.cpf = "Campo obrigatório";
+    if (!form.cargo) newErrors.cargo = "Campo obrigatório";
+    if (!form.matricula) newErrors.matricula = "Campo obrigatório";
+    if (!form.grupo) newErrors.grupo = "Selecione o grupo de diária";
+
+    form.trips.forEach((trip, index) => {
+      if (!trip.destino) newErrors[`trip_${index}_destino`] = "Campo obrigatório";
+      if (!trip.distancia) newErrors[`trip_${index}_distancia`] = "Selecione a distância";
+      if (!trip.saida) newErrors[`trip_${index}_saida`] = "Campo obrigatório";
+      if (!trip.horaSaida) newErrors[`trip_${index}_horaSaida`] = "Campo obrigatório";
+      if (!trip.retorno) newErrors[`trip_${index}_retorno`] = "Campo obrigatório";
+      if (!trip.horaRetorno) newErrors[`trip_${index}_horaRetorno`] = "Campo obrigatório";
+      if (!trip.transporte) newErrors[`trip_${index}_transporte`] = "Selecione o transporte";
+      if (!trip.placa) newErrors[`trip_${index}_placa`] = "Campo obrigatório";
+      if (!trip.diaria) newErrors[`trip_${index}_diaria`] = "Campo obrigatório";
+      if (!trip.justificativa) newErrors[`trip_${index}_justificativa`] = "Campo obrigatório";
+    });
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const gerarPDF = () => {
     if (!pdfMake || isLoading) return;
     if (!validateForm()) return;
 
+    const hoje = new Date();
+    const dia = String(hoje.getDate()).padStart(2, "0");
+    const mes = hoje.toLocaleString("pt-BR", { month: "long" });
+    const ano = hoje.getFullYear();
+
     const content = [
       { text: "PROPOSTA DE CONCESSÃO E PAGAMENTO DE DIÁRIA", style: "header", alignment: "center" },
-      { 
-        text: `Servidor: ${form.servidor}   Cargo: ${form.cargo}\nMatrícula: ${form.matricula}`, 
-        style: "content",
-        margin: [0, 5, 0, 5]
-      },
+      { text: "Nos Termos do Decreto n. 56/2025", style: "subheader", alignment: "center", margin: [0, 0, 0, 20] },
+      { text: "A) IDENTIFICAÇÃO DO SERVIDOR", style: "section" },
+      { text: `Servidor: ${form.servidor}   Cargo: ${form.cargo}`, margin: [0, 5, 0, 0] },
+      { text: `Matrícula: ${form.matricula}   Grupo de Diária: ${form.grupo}`, margin: [0, 5, 0, 10] }
     ];
 
-    let totalGeral = 0;
-    form.trips.forEach((trip, index) => {
+    form.trips.forEach((trip, i) => {
       const diaria = parseFloat(trip.diaria) || 0;
-      const pernoitePerNight = parseFloat(trip.pernoite) || 0;
-      const numberOfNights = calculateNights(trip.saida, trip.retorno);
-      const totalPernoite = (pernoitePerNight * numberOfNights).toFixed(2);
-      const totalTrip = (diaria + parseFloat(totalPernoite)).toFixed(2);
-      totalGeral += parseFloat(totalTrip);
+      const pernoitePorNoite = parseFloat(trip.pernoite) || 0;
+      const noites = calculateNights(trip.saida, trip.retorno);
+      const totalPernoite = pernoitePorNoite * noites;
+      const valorTotal = diaria + totalPernoite;
 
       content.push(
-        { 
-          text: `Viagem ${index + 1}:`, 
-          style: "subheader",
-          margin: [0, 10, 0, 5]
-        },
-        { 
-          text: `Destino: ${trip.destino}\nSaída: ${trip.saida} ${trip.horaSaida}\nRetorno: ${trip.retorno} ${trip.horaRetorno}`, 
-          style: "content",
-          margin: [0, 5, 0, 5]
-        },
-        { 
-          text: [
-            `Diária: R$ ${diaria.toFixed(2)}`,
-            numberOfNights > 0 && pernoitePerNight > 0 
-              ? ` + Pernoite: R$ ${pernoitePerNight.toFixed(2)} x ${numberOfNights} noite(s) = R$ ${totalPernoite}` 
-              : numberOfNights > 0 
-                ? ` + Pernoite: R$ 0.00 (valor por noite não informado)` 
-                : "",
-            ` = Total: R$ ${totalTrip}`
-          ], 
-          style: "content",
-          margin: [0, 5, 0, 5]
-        },
-        { text: `Placa: ${trip.placa}`, style: "content", margin: [0, 5, 0, 5] },
-        { text: `Justificativa: ${trip.justificativa || "__________________"}`, style: "content", margin: [0, 5, 0, 5] }
+        { text: `B) DESTINO E PERÍODO DE AFASTAMENTO - Viagem ${i + 1}`, style: "section" },
+        { text: `Destino: ${trip.destino}    Distância: ${trip.distancia}`, margin: [0, 5, 0, 0] },
+        { text: `Data: ${trip.saida}   Hora de Saída: ${trip.horaSaida}   Retorno: ${trip.retorno} ${trip.horaRetorno}`, margin: [0, 5, 0, 10] },
+
+        { text: "C) DIÁRIA E PERNOITE", style: "section" },
+        { text: `( ) Entre 04 e 08 horas     ( ) Acima de 08 horas\n( ) Outro Estado – Afastamento acima de 08 horas\n( ) Com pernoite`, margin: [0, 5, 0, 10] },
+
+        { text: "D) TRANSPORTE", style: "section" },
+        { text: `${trip.transporte}    Placa: ${trip.placa}`, margin: [0, 5, 0, 10] },
+
+        { text: "E) TOTALIZADORES", style: "section" },
+        { text: `Diária: R$ ${diaria.toFixed(2)}   Pernoite: R$ ${totalPernoite.toFixed(2)}   Valor Total: R$ ${valorTotal.toFixed(2)}`, margin: [0, 5, 0, 10] },
+
+        { text: "F) JUSTIFICATIVA DO DESLOCAMENTO", style: "section" },
+        { text: trip.justificativa, margin: [0, 5, 0, 20] }
       );
     });
 
     content.push(
-      { text: `Total Geral: R$ ${totalGeral.toFixed(2)}`, style: "content", bold: true, margin: [0, 5, 0, 5] }
+      { text: "________________________________________", alignment: "center" },
+      { text: `${form.servidor} – CPF: ${form.cpf}`, alignment: "center", margin: [0, 0, 0, 20] },
+      { text: "G) AUTORIZAÇÃO", style: "section" },
+      { text: "Autorizo o servidor requerente a afastar-se da sede do município, cumprir os objetivos da missão e perceber as diárias aqui especificadas.", margin: [0, 5, 0, 40] },
+      { text: "________________________________________", alignment: "center" },
+      { text: "Secretário(a) de __________________________", alignment: "center" },
+      { text: "Nome do Secretário(a)", alignment: "center", margin: [0, 0, 0, 20] },
+      { text: `São Ludgero-SC, ${dia} de ${mes} de ${ano}`, alignment: "right", margin: [0, 20, 0, 20] },
+      { text: "Administração Municipal\nCentro Administrativo Municipal\nAv. Monsenhor Frederico Tombrock, 1.300\n(48) 3657-8800", alignment: "center", fontSize: 9 }
     );
 
-    const docDefinition = {
+    pdfMake.createPdf({
       pageSize: 'A4',
-      pageMargins: [20, 20, 20, 20],
+      pageMargins: [40, 40, 40, 40],
       content,
       styles: {
-        header: {
-          fontSize: 14,
-          bold: true,
-          margin: [0, 0, 0, 10]
-        },
-        subheader: {
-          fontSize: 12,
-          bold: true
-        },
-        content: {
-          fontSize: 10,
-          lineHeight: 1.2
-        }
+        header: { fontSize: 14, bold: true },
+        subheader: { fontSize: 11, italics: true },
+        section: { fontSize: 11, bold: true, margin: [0, 10, 0, 5] },
       },
-      defaultStyle: {
-        font: 'Roboto',
-        fontSize: 10
-      }
-    };
-    pdfMake.createPdf(docDefinition).download("diaria.pdf");
+      defaultStyle: { fontSize: 10 }
+    }).download("diaria_modelo_oficial.pdf");
   };
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      background: "linear-gradient(to bottom, #ecfdf5, #d1fae5)"
-    }}>
-      <div style={{
-        background: "white",
-        padding: "30px",
-        borderRadius: "15px",
-        boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        width: "400px"
-      }}>
-        <h2 style={{ textAlign: "center", color: "#065f46", marginBottom: "15px", fontSize: "18px" }}>
-          Formulário de Diárias - São Ludgero
-        </h2>
+    <div style={{ minHeight: "100vh", display: "flex", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: 600, background: "#f0fdf4", padding: 20, borderRadius: 10 }}>
+        <h2 style={{ textAlign: "center", color: "#065f46", marginBottom: 20 }}>Formulário de Diária</h2>
 
-        {[
-          { label: "Nome do Servidor", name: "servidor", required: true },
-          { label: "Cargo", name: "cargo", required: true },
-          { label: "Matrícula", name: "matricula", required: true },
-        ].map((field) => (
-          <div key={field.name} style={{ marginBottom: "8px", width: "100%" }}>
-            <label style={{ display: "block", textAlign: "center", marginBottom: "3px", fontSize: "14px" }}>
-              {field.label}:
-              {field.required && <span style={{ color: "red" }}> *</span>}
-            </label>
-            <input
-              type={field.type || "text"}
-              name={field.name}
-              value={form[field.name]}
-              onChange={(e) => handleChange(e)}
-              required={field.required}
-              style={{
-                width: "100%",
-                padding: "6px",
-                borderRadius: "5px",
-                border: `1px solid ${errors[field.name] ? "red" : "#10b981"}`,
-                fontSize: "14px"
-              }}
-            />
-            {errors[field.name] && (
-              <div style={{ color: "red", fontSize: "10px", marginTop: "3px", textAlign: "center" }}>
-                {errors[field.name]}
-              </div>
-            )}
-          </div>
-        ))}
+        <input
+          placeholder="Nome do Servidor"
+          name="servidor"
+          value={form.servidor}
+          onChange={handleChange}
+          style={{ width: "100%", marginBottom: 8, padding: 6, borderRadius: 5 }}
+        />
+        {errors.servidor && <p style={{ color: "red" }}>{errors.servidor}</p>}
+
+        <input
+          placeholder="CPF"
+          name="cpf"
+          value={form.cpf}
+          onChange={handleChange}
+          style={{ width: "100%", marginBottom: 8, padding: 6, borderRadius: 5 }}
+        />
+        {errors.cpf && <p style={{ color: "red" }}>{errors.cpf}</p>}
+
+        <input
+          placeholder="Cargo"
+          name="cargo"
+          value={form.cargo}
+          onChange={handleChange}
+          style={{ width: "100%", marginBottom: 8, padding: 6, borderRadius: 5 }}
+        />
+        {errors.cargo && <p style={{ color: "red" }}>{errors.cargo}</p>}
+
+        <input
+          placeholder="Matrícula"
+          name="matricula"
+          value={form.matricula}
+          onChange={handleChange}
+          style={{ width: "100%", marginBottom: 8, padding: 6, borderRadius: 5 }}
+        />
+        {errors.matricula && <p style={{ color: "red" }}>{errors.matricula}</p>}
+
+        <select
+          name="grupo"
+          value={form.grupo}
+          onChange={handleChange}
+          style={{ width: "100%", marginBottom: 15, padding: 6, borderRadius: 5 }}
+        >
+          <option value="">Selecione o grupo de diária</option>
+          <option value="A">Grupo A</option>
+          <option value="B">Grupo B</option>
+          <option value="C">Grupo C</option>
+        </select>
+        {errors.grupo && <p style={{ color: "red" }}>{errors.grupo}</p>}
 
         {form.trips.map((trip, index) => (
-          <div key={index} style={{ width: "100%", marginBottom: "15px", borderTop: index > 0 ? "1px solid #ccc" : "none", paddingTop: index > 0 ? "10px" : "0" }}>
-            <h3 style={{ textAlign: "center", color: "#065f46", fontSize: "16px", marginBottom: "10px" }}>
-              Viagem {index + 1}
-            </h3>
-            {[
-              { label: "Destino", name: "destino", required: true },
-            ].map((field) => (
-              <div key={field.name} style={{ marginBottom: "8px", width: "100%" }}>
-                <label style={{ display: "block", textAlign: "center", marginBottom: "3px", fontSize: "14px" }}>
-                  {field.label}:
-                  {field.required && <span style={{ color: "red" }}> *</span>}
-                </label>
-                <input
-                  type={field.type || "text"}
-                  name={field.name}
-                  value={trip[field.name]}
-                  onChange={(e) => handleChange(e, index, field.name)}
-                  required={field.required}
-                  style={{
-                    width: "100%",
-                    padding: "6px",
-                    borderRadius: "5px",
-                    border: `1px solid ${errors[`trip_${index}_${field.name}`] ? "red" : "#10b981"}`,
-                    fontSize: "14px"
-                  }}
-                />
-                {errors[`trip_${index}_${field.name}`] && (
-                  <div style={{ color: "red", fontSize: "10px", marginTop: "3px", textAlign: "center" }}>
-                    {errors[`trip_${index}_${field.name}`]}
-                  </div>
-                )}
-              </div>
-            ))}
+          <div key={index} style={{ width: "100%", marginBottom: 15, borderTop: index > 0 ? "1px solid #ccc" : "none", paddingTop: index > 0 ? 10 : 0 }}>
+            <h3 style={{ textAlign: "center", color: "#065f46" }}>Viagem {index + 1}</h3>
 
-            <div style={{ display: "flex", gap: "10px", width: "100%", marginBottom: "8px" }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: "block", textAlign: "center", marginBottom: "3px", fontSize: "14px" }}>
-                  Data de Saída:<span style={{ color: "red" }}> *</span>
-                </label>
-                <input
-                  type="date"
-                  name="saida"
-                  value={trip.saida}
-                  onChange={(e) => handleChange(e, index, "saida")}
-                  required
-                  style={{
-                    width: "100%",
-                    padding: "6px",
-                    borderRadius: "5px",
-                    border: `1px solid ${errors[`trip_${index}_saida`] ? "red" : "#10b981"}`,
-                    fontSize: "14px"
-                  }}
-                />
-                {errors[`trip_${index}_saida`] && (
-                  <div style={{ color: "red", fontSize: "10px", marginTop: "3px", textAlign: "center" }}>
-                    {errors[`trip_${index}_saida`]}
-                  </div>
-                )}
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: "block", textAlign: "center", marginBottom: "3px", fontSize: "14px" }}>
-                  Hora de Saída:<span style={{ color: "red" }}> *</span>
-                </label>
-                <input
-                  type="time"
-                  name="horaSaida"
-                  value={trip.horaSaida}
-                  onChange={(e) => handleChange(e, index, "horaSaida")}
-                  required
-                  style={{
-                    width: "100%",
-                    padding: "6px",
-                    borderRadius: "5px",
-                    border: `1px solid ${errors[`trip_${index}_horaSaida`] ? "red" : "#10b981"}`,
-                    fontSize: "14px"
-                  }}
-                />
-                {errors[`trip_${index}_horaSaida`] && (
-                  <div style={{ color: "red", fontSize: "10px", marginTop: "3px", textAlign: "center" }}>
-                    {errors[`trip_${index}_horaSaida`]}
-                  </div>
-                )}
-              </div>
-            </div>
+            <input
+              placeholder="Destino"
+              value={trip.destino}
+              onChange={(e) => handleChange(e, index, "destino")}
+              style={{ width: "100%", marginBottom: 8, padding: 6, borderRadius: 5 }}
+            />
+            {errors[`trip_${index}_destino`] && <p style={{ color: "red" }}>{errors[`trip_${index}_destino`]}</p>}
 
-            <div style={{ display: "flex", gap: "10px", width: "100%", marginBottom: "8px" }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: "block", textAlign: "center", marginBottom: "3px", fontSize: "14px" }}>
-                  Data de Retorno:<span style={{ color: "red" }}> *</span>
-                </label>
-                <input
-                  type="date"
-                  name="retorno"
-                  value={trip.retorno}
-                  onChange={(e) => handleChange(e, index, "retorno")}
-                  required
-                  style={{
-                    width: "100%",
-                    padding: "6px",
-                    borderRadius: "5px",
-                    border: `1px solid ${errors[`trip_${index}_retorno`] ? "red" : "#10b981"}`,
-                    fontSize: "14px"
-                  }}
-                />
-                {errors[`trip_${index}_retorno`] && (
-                  <div style={{ color: "red", fontSize: "10px", marginTop: "3px", textAlign: "center" }}>
-                    {errors[`trip_${index}_retorno`]}
-                  </div>
-                )}
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: "block", textAlign: "center", marginBottom: "3px", fontSize: "14px" }}>
-                  Hora de Retorno:<span style={{ color: "red" }}> *</span>
-                </label>
-                <input
-                  type="time"
-                  name="horaRetorno"
-                  value={trip.horaRetorno}
-                  onChange={(e) => handleChange(e, index, "horaRetorno")}
-                  required
-                  style={{
-                    width: "100%",
-                    padding: "6px",
-                    borderRadius: "5px",
-                    border: `1px solid ${errors[`trip_${index}_horaRetorno`] ? "red" : "#10b981"}`,
-                    fontSize: "14px"
-                  }}
-                />
-                {errors[`trip_${index}_horaRetorno`] && (
-                  <div style={{ color: "red", fontSize: "10px", marginTop: "3px", textAlign: "center" }}>
-                    {errors[`trip_${index}_horaRetorno`]}
-                  </div>
-                )}
-              </div>
-            </div>
+            <select
+              value={trip.distancia}
+              onChange={(e) => handleChange(e, index, "distancia")}
+              style={{ width: "100%", marginBottom: 8, padding: 6, borderRadius: 5 }}
+            >
+              <option value="">Selecione a distância</option>
+              <option value="Inferior a 200 km">Inferior a 200 km</option>
+              <option value="Acima de 200 km">Acima de 200 km</option>
+            </select>
+            {errors[`trip_${index}_distancia`] && <p style={{ color: "red" }}>{errors[`trip_${index}_distancia`]}</p>}
 
-            {[
-              { label: "Placa do Veículo", name: "placa", required: true },
-              { label: "Valor da Diária (R$)", name: "diaria", type: "number", required: true },
-              { label: "Valor do Pernoite por Noite (R$)", name: "pernoite", type: "number" },
-            ].map((field) => (
-              <div key={field.name} style={{ marginBottom: "8px", width: "100%" }}>
-                <label style={{ display: "block", textAlign: "center", marginBottom: "3px", fontSize: "14px" }}>
-                  {field.label}:
-                  {field.required && <span style={{ color: "red" }}> *</span>}
-                </label>
-                <input
-                  type={field.type || "text"}
-                  name={field.name}
-                  value={trip[field.name]}
-                  onChange={(e) => handleChange(e, index, field.name)}
-                  required={field.required}
-                  style={{
-                    width: "100%",
-                    padding: "6px",
-                    borderRadius: "5px",
-                    border: `1px solid ${errors[`trip_${index}_${field.name}`] ? "red" : "#10b981"}`,
-                    fontSize: "14px"
-                  }}
-                />
-                {errors[`trip_${index}_${field.name}`] && (
-                  <div style={{ color: "red", fontSize: "10px", marginTop: "3px", textAlign: "center" }}>
-                    {errors[`trip_${index}_${field.name}`]}
-                  </div>
-                )}
-              </div>
-            ))}
-
-            <div style={{ marginBottom: "8px", width: "100%" }}>
-              <label style={{ display: "block", textAlign: "center", marginBottom: "3px", fontSize: "14px" }}>
-                Justificativa do Deslocamento:
-                <span style={{ color: "red" }}> *</span>
-              </label>
-              <textarea
-                name="justificativa"
-                rows={3}
-                value={trip.justificativa}
-                onChange={(e) => handleChange(e, index, "justificativa")}
-                required
-                style={{
-                  width: "100%",
-                  padding: "6px",
-                  borderRadius: "5px",
-                  border: `1px solid ${errors[`trip_${index}_justificativa`] ? "red" : "#10b981"}`,
-                  fontSize: "14px"
-                }}
+            <div style={{ marginBottom: 8 }}>
+              <label>Data de Saída</label>
+              <input
+                type="date"
+                value={trip.saida}
+                onChange={(e) => handleChange(e, index, "saida")}
+                style={{ width: "100%", marginBottom: 5, padding: 6, borderRadius: 5 }}
               />
-              {errors[`trip_${index}_justificativa`] && (
-                <div style={{ color: "red", fontSize: "10px", marginTop: "3px", textAlign: "center" }}>
-                  {errors[`trip_${index}_justificativa`]}
-                </div>
-              )}
+              <label>Hora de Saída</label>
+              <input
+                type="time"
+                value={trip.horaSaida}
+                onChange={(e) => handleChange(e, index, "horaSaida")}
+                style={{ width: "100%", marginBottom: 8, padding: 6, borderRadius: 5 }}
+              />
+              {errors[`trip_${index}_saida`] && <p style={{ color: "red" }}>{errors[`trip_${index}_saida`]}</p>}
+              {errors[`trip_${index}_horaSaida`] && <p style={{ color: "red" }}>{errors[`trip_${index}_horaSaida`]}</p>}
             </div>
+
+            <div style={{ marginBottom: 8 }}>
+              <label>Data de Retorno</label>
+              <input
+                type="date"
+                value={trip.retorno}
+                onChange={(e) => handleChange(e, index, "retorno")}
+                style={{ width: "100%", marginBottom: 5, padding: 6, borderRadius: 5 }}
+              />
+              <label>Hora de Retorno</label>
+              <input
+                type="time"
+                value={trip.horaRetorno}
+                onChange={(e) => handleChange(e, index, "horaRetorno")}
+                style={{ width: "100%", marginBottom: 8, padding: 6, borderRadius: 5 }}
+              />
+              {errors[`trip_${index}_retorno`] && <p style={{ color: "red" }}>{errors[`trip_${index}_retorno`]}</p>}
+              {errors[`trip_${index}_horaRetorno`] && <p style={{ color: "red" }}>{errors[`trip_${index}_horaRetorno`]}</p>}
+            </div>
+
+            <div style={{ width: "100%", marginBottom: 8, textAlign: "left" }}>
+              <label style={{ display: "block", marginBottom: 2 }}>
+                <input
+                  type="checkbox"
+                  checked={trip.diaria04_08 || false}
+                  onChange={(e) => handleChange({ target: { value: e.target.checked } }, index, "diaria04_08")}
+                />
+                {" "}Entre 04 e 08 horas
+              </label>
+              <label style={{ display: "block", marginBottom: 2 }}>
+                <input
+                  type="checkbox"
+                  checked={trip.diariaAcima08 || false}
+                  onChange={(e) => handleChange({ target: { value: e.target.checked } }, index, "diariaAcima08")}
+                />
+                {" "}Acima de 08 horas
+              </label>
+              <label style={{ display: "block", marginBottom: 2 }}>
+                <input
+                  type="checkbox"
+                  checked={trip.outroEstado || false}
+                  onChange={(e) => handleChange({ target: { value: e.target.checked } }, index, "outroEstado")}
+                />
+                {" "}Outro Estado – Afastamento acima de 08 horas
+              </label>
+              <label style={{ display: "block", marginBottom: 2 }}>
+                <input
+                  type="checkbox"
+                  checked={trip.comPernoite || false}
+                  onChange={(e) => handleChange({ target: { value: e.target.checked } }, index, "comPernoite")}
+                />
+                {" "}Com pernoite
+              </label>
+            </div>
+
+            <select
+              value={trip.transporte}
+              onChange={(e) => handleChange(e, index, "transporte")}
+              style={{ width: "100%", marginBottom: 8, padding: 6, borderRadius: 5 }}
+            >
+              <option value="">Selecione o Transporte</option>
+              <option value="Veículo Oficial">Veículo Oficial</option>
+              <option value="Veículo Particular">Veículo Particular</option>
+              <option value="Ônibus">Ônibus</option>
+              <option value="Outro">Outro</option>
+            </select>
+            {errors[`trip_${index}_transporte`] && <p style={{ color: "red" }}>{errors[`trip_${index}_transporte`]}</p>}
+
+            <input
+              placeholder="Placa do Veículo"
+              value={trip.placa}
+              onChange={(e) => handleChange(e, index, "placa")}
+              style={{ width: "100%", marginBottom: 8, padding: 6, borderRadius: 5 }}
+            />
+            {errors[`trip_${index}_placa`] && <p style={{ color: "red" }}>{errors[`trip_${index}_placa`]}</p>}
+
+            <input
+              placeholder="Valor da Diária (R$)"
+              type="number"
+              value={trip.diaria}
+              onChange={(e) => handleChange(e, index, "diaria")}
+              style={{ width: "100%", marginBottom: 8, padding: 6, borderRadius: 5 }}
+            />
+            {errors[`trip_${index}_diaria`] && <p style={{ color: "red" }}>{errors[`trip_${index}_diaria`]}</p>}
+
+            <input
+              placeholder="Valor do Pernoite por Noite (R$)"
+              type="number"
+              value={trip.pernoite}
+              onChange={(e) => handleChange(e, index, "pernoite")}
+              style={{ width: "100%", marginBottom: 8, padding: 6, borderRadius: 5 }}
+            />
+
+            <textarea
+              placeholder="Justificativa do Deslocamento"
+              value={trip.justificativa}
+              onChange={(e) => handleChange(e, index, "justificativa")}
+              style={{ width: "100%", height: 60, padding: 6, borderRadius: 5 }}
+            />
+            {errors[`trip_${index}_justificativa`] && <p style={{ color: "red" }}>{errors[`trip_${index}_justificativa`]}</p>}
           </div>
         ))}
 
-        <button
-          onClick={addTrip}
-          style={{
-            backgroundColor: "#065f46",
-            color: "white",
-            padding: "8px 16px",
-            border: "none",
-            borderRadius: "5px",
-            cursor: "pointer",
-            fontSize: "14px",
-            marginBottom: "10px"
-          }}
-        >
-          Adicionar Viagem
-        </button>
-
-        <button
-          onClick={gerarPDF}
-          disabled={isLoading}
-          style={{
-            backgroundColor: "#047857",
-            color: "white",
-            padding: "8px 16px",
-            border: "none",
-            borderRadius: "5px",
-            cursor: isLoading ? "not-allowed" : "pointer",
-            fontSize: "14px"
-          }}
-        >
-          {isLoading ? "Carregando..." : "Gerar PDF"}
-        </button>
+        <button onClick={addTrip} style={{ width: "100%", padding: 10, borderRadius: 5, backgroundColor: "#10b981", color: "white", marginBottom: 15 }}>Adicionar Viagem</button>
+        <button onClick={gerarPDF} style={{ width: "100%", padding: 10, borderRadius: 5, backgroundColor: "#065f46", color: "white" }}>Gerar PDF</button>
       </div>
     </div>
   );
