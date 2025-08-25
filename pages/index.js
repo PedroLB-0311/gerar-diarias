@@ -234,7 +234,7 @@ export default function DiariaPage() {
       const pernoite = trip.totalPernoite;
       const valorTotal = diaria + pernoite;
 
-      content.push({ text: `B) DESTINO E PERÍODO DE AFASTAMENTO - Viagem ${i + 1}`, style: 'section' });
+      content.push({ text: `B) DESTINO E PERÍODO DE AFASTAMENTO `, style: 'section' });
       content.push({ text: `Destino: ${trip.destino}    Distância: ${trip.distancia}`, margin: [0, 5, 0, 0] });
       content.push({ text: `Data de Saída: ${formatDate(trip.saida)}   Hora de Saída: ${trip.horaSaida}`, margin: [0, 5, 0, 0] });
 
