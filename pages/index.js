@@ -213,9 +213,12 @@ const calculateTotalDiaria = (saida, retorno, diariaValor) => {
 
   // Gera o PDF
   const gerarPDF = () => {
-    if (!pdfMake || isLoading) return;
-    if (!validateForm()) return;
-
+    if (!pdfMake || isLoading) 
+      return;
+    if (!validateForm()) {
+      alert("Por Favor preencha todos os campos necessarios");
+      return;
+    }
     const hoje = new Date();
     const dia = String(hoje.getDate()).padStart(2, '0');
     const mes = hoje.toLocaleString('pt-BR', { month: 'long' });
