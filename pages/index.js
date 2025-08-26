@@ -27,7 +27,7 @@ export default function DiariaPage() {
         horaRetorno: '',
         diaria04_08: false,
         diariaAcima08: false,
-        outroEstado: false,
+        outroEstadoAcimade8hrs: false,
         comPernoite: false,
         transporte: '',
         placa: '',
@@ -279,7 +279,7 @@ export default function DiariaPage() {
           margin: [0, 6, 0, 4]
         },
         {
-          text: `${checkboxes[0]} Entre 04 e 08 horas     ${checkboxes[1]} Acima de 08 horas\n${checkboxes[2]} Outro Estado – Afastamento acima de 08 horas\n${checkboxes[3]} Com pernoite`,
+          text: `${checkboxes[0]} Entre 04 e 08 horas     ${checkboxes[1]} Acima de 08 horas\n${checkboxes[2]} Outro Estado Acima De 8 horas \n${checkboxes[3]} Com pernoite`,
           margin: [0, 0, 0, 6],
           fontSize: 10,
         }
@@ -442,7 +442,7 @@ export default function DiariaPage() {
         <h2 style={{ textAlign: 'center', color: '#065f46', marginBottom: 20 }}>Formulário de Diária</h2>
 
         {/* Campos do servidor */}
-        {['servidor', 'cpf', 'cargo', 'matricula', 'secretario', 'secretaria'].map((field) => (
+        {['servidor', 'cpf', 'cargo', 'matricula', 'Nome do Secretario(a)', 'secretaria'].map((field) => (
           <div key={field} style={{ marginBottom: 10 }}>
             <label style={{ display: 'block', marginBottom: 5 }}>
               {field.charAt(0).toUpperCase() + field.slice(1)}
@@ -542,8 +542,8 @@ export default function DiariaPage() {
                   <input
                     type="checkbox"
                     checked={trip.outroEstado}
-                    onChange={(e) => handleChange(e, index, 'outroEstado')}
-                  /> Outro Estado
+                    onChange={(e) => handleChange(e, index, 'outroEstado Acima de 8 horas')}
+                  /> Outro Estado Acima de 8 horas
                 </label>
                 <label>
                   <input
