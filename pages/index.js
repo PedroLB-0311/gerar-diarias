@@ -52,9 +52,6 @@ export default function DiariaPage() {
     '2025-11-02', // Finados
     '2025-11-15', // Proclamação da República
     '2025-11-20', // Consciência Negra
-    '2025-12-25', // Natal
-    '2025-08-11', // Dia do Estado de Santa Catarina
-    '2025-11-25', // Dia de Santa Catarina de Alexandria
     '2025-03-26', // Emancipação Política de São Ludgero
     '2025-06-12', // Padroeiro São Ludgero
   ];
@@ -66,46 +63,49 @@ export default function DiariaPage() {
       setIsLoading(false);
     }
   }, []);
+// Função auxiliar para criar data no fuso local (sem hora UTC)
+const toLocalDate = (dateStr) => {
+  if (!dateStr) return null;
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day); // sempre no horário local
+};
 
-  // Verifica se uma data é feriado
-  const isHoliday = (date) => {
-    const dateStr = date.toISOString().slice(0, 10);
-    return holidays.includes(dateStr);
-  };
+// Verifica se uma data é feriado
+const isHoliday = (date) => {
+  const dateStr = date.toISOString().slice(0, 10);
+  return holidays.includes(dateStr);
+};
 
-  // Formata data para DD/MM/YYYY
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    const [year, month, day] = dateStr.split('-');
-    return `${day}/${month}/${year}`;
-  };
+// Calcula o número de dias e pernoites
+const calculateDays = (saida, retorno, comPernoite) => {
+  if (!saida) return { dias: 0, pernoites: 0 };
+  const start = toLocalDate(saida);
+  const end = retorno ? toLocalDate(retorno) : new Date(start);
+  const diffTime = end - start;
+  const dias = diffTime >= 0 ? Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1 : 0;
+  const pernoites = comPernoite && dias > 1 ? dias - 1 : 0;
+  return { dias, pernoites };
+};
 
-  // Calcula o número de dias e pernoites
-  const calculateDays = (saida, retorno, comPernoite) => {
-    if (!saida) return { dias: 0, pernoites: 0 };
-    const start = new Date(saida);
-    const end = retorno ? new Date(retorno) : new Date(start);
-    const diffTime = end - start;
-    const dias = diffTime >= 0 ? Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1 : 0;
-    const pernoites = comPernoite && dias > 1 ? dias - 1 : 0;
-    return { dias, pernoites };
-  };
+// Calcula o total da diária, dobrando somente nos fins de semana ou feriados
+const calculateTotalDiaria = (saida, retorno, diariaValor) => {
+  if (!saida) return 0;
+  const start = toLocalDate(saida);
+  const end = toLocalDate(retorno || saida);
+  let total = 0;
+  let current = new Date(start);
 
-  // Calcula o total da diária, dobrando nos fins de semana ou feriados
-  const calculateTotalDiaria = (saida, retorno, diariaValor) => {
-    if (!saida) return 0;
-    const start = new Date(saida);
-    const end = new Date(retorno || saida);
-    let total = 0;
-    let current = new Date(start);
-    while (current <= end) {
-      const isWeekend = current.getDay() === 0 || current.getDay() === 6;
-      const multiplier = isWeekend || isHoliday(current) ? 2 : 1;
-      total += multiplier * diariaValor;
-      current.setDate(current.getDate() + 1);
-    }
-    return total;
-  };
+  while (current <= end) {
+    const isWeekend = current.getDay() === 0 || current.getDay() === 6;
+    const multiplier = isWeekend || isHoliday(current) ? 2 : 1;
+    total += multiplier * diariaValor;
+
+    // avança 1 dia
+    current.setDate(current.getDate() + 1);
+  }
+  return total;
+};
+
 
   // Atualiza os totais de diária e pernoite
   const updateTotals = (trip) => {
