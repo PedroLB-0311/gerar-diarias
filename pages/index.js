@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 
-// Placeholder for the municipality logo (replace with actual base64 string for production)
  const logoMunicipio='Logo.png'
 const holidays = [
   '2025-01-01', '2025-04-18', '2025-04-21', '2025-05-01', '2025-06-19', '2025-09-07',
@@ -94,16 +93,55 @@ export default function DiariaPage() {
       setIsLoading(false);
     }
   }, []);
+  const valoresDiarias = {
+    "outroEstado": {
+      A: { pernoite: 1280, acima8h: 200 },
+      B: { pernoite: 950, acima8h: 160 }
+    },
+    "capital": {
+      A: { pernoite: 400, acima8h: 135, entre4e8h: 80 },
+      B: { pernoite: 320, acima8h: 100, entre4e8h: 60 }
+    },
+    "menos200": {
+      A: { pernoite: 400, acima8h: 135, entre4e8h: 80 },
+      B: { pernoite: 320, acima8h: 100, entre4e8h: 60 }
+    },
+    "mais200": {
+      A: { pernoite: 400, acima8h: 135, entre4e8h: 135 },
+      B: { pernoite: 320, acima8h: 110, entre4e8h: 110 }
+    }
+  };
+  const getValorDiaria = (grupo, trip) => {
+    let tabela;
+    if (trip.outroEstado) {
+      tabela = valoresDiarias.outroEstado;
+    } else if (trip.distancia === "Inferior a 200 km") {
+      tabela = valoresDiarias.menos200;
+    } else if (trip.distancia === "Acima de 200 km") {
+      tabela = valoresDiarias.mais200;
+    } else {
+      tabela = valoresDiarias.capital;
+    }
+  
+    const valores = tabela[grupo];
+    if (trip.comPernoite) return { diaria: valores.acima8h, pernoite: valores.pernoite };
+    if (trip.diariaAcima08) return { diaria: valores.acima8h, pernoite: 0 };
+    if (trip.diaria04_08) return { diaria: valores.entre4e8h, pernoite: 0 };
+  
+    return { diaria: 0, pernoite: 0 };
+  };
+  
+  
 
   const updateTotals = (trip) => {
+    const { diaria, pernoite } = getValorDiaria(form.grupo, trip);
     const { pernoites } = calculateDays(trip.saida, trip.retorno, trip.comPernoite);
-    const diariaValor = parseFloat(trip.diaria) || 0;
-    const pernoiteValor = trip.comPernoite ? parseFloat(trip.pernoite) || 0 : 0;
     return {
-      totalDiaria: calculateTotalDiaria(trip.saida, trip.retorno, diariaValor),
-      totalPernoite: pernoiteValor * pernoites,
+      totalDiaria: calculateTotalDiaria(trip.saida, trip.retorno, diaria),
+      totalPernoite: pernoite * pernoites,
     };
   };
+  
 
   const handleChange = (e, tripIndex, field) => {
     const updatedTrips = [...form.trips];
@@ -634,7 +672,7 @@ export default function DiariaPage() {
                   options: ['', 'Veículo Oficial', 'Veículo Particular'],
                 },
                 { label: 'Placa do Veículo', field: 'placa', type: 'text' },
-                { label: 'Valor da Diária (R$)', field: 'diaria', type: 'number' },
+               
               ].map(({ label, field, type, options, disabled }) => (
                 <div key={field} style={{ marginBottom: 0, gridColumn: type === 'checkbox' ? '1 / 3' : 'auto' }}>
                   <label style={{ display: 'block', marginBottom: 6, fontSize: 14, color: '#374151' }}>{label}</label>
@@ -689,7 +727,7 @@ export default function DiariaPage() {
                   <input
                     type="number"
                     value={trip.pernoite}
-                    onChange={(e) => handleChange(e, index, 'pernoite')}
+                    
                     style={{
                       width: '100%',
                       padding: 10,
