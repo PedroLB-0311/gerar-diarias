@@ -143,8 +143,8 @@ export default function DiariaPage() {
       }],
     });
   };
-
   const validateForm = () => {
+    console.log(form)
     const newErrors = {};
     if (!form.servidor) newErrors.servidor = 'Campo obrigatório';
     if (!form.cpf) newErrors.cpf = 'Campo obrigatório';
@@ -436,28 +436,28 @@ export default function DiariaPage() {
       },
     }).download('diaria_modelo_oficial.pdf');
   };
-  return (
-    <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', padding: 20 }}>
-      <div style={{ width: 600, background: '#f0fdf4', padding: 20, borderRadius: 10 }}>
-        <h2 style={{ textAlign: 'center', color: '#065f46', marginBottom: 20 }}>Formulário de Diária</h2>
+ // No retorno do componente, altere a lista de campos mapeados
+return (
+  <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', padding: 20 }}>
+    <div style={{ width: 600, background: '#f0fdf4', padding: 20, borderRadius: 10 }}>
+      <h2 style={{ textAlign: 'center', color: '#065f46', marginBottom: 20 }}>Formulário de Diária</h2>
 
-        {/* Campos do servidor */}
-        {['servidor', 'cpf', 'cargo', 'matricula', 'Nome do Secretario(a)', 'secretaria'].map((field) => (
-          <div key={field} style={{ marginBottom: 10 }}>
-            <label style={{ display: 'block', marginBottom: 5 }}>
-              {field.charAt(0).toUpperCase() + field.slice(1)}
-            </label>
-            <input
-              type="text"
-              name={field}
-              value={form[field]}
-              onChange={handleChange}
-              style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
-            />
-            {errors[field] && <span style={{ color: 'red', fontSize: 12 }}>{errors[field]}</span>}
-          </div>
-        ))}
-
+      {/* Campos do servidor */}
+      {['servidor', 'cpf', 'cargo', 'matricula', 'secretario', 'secretaria'].map((field) => (
+        <div key={field} style={{ marginBottom: 10 }}>
+          <label style={{ display: 'block', marginBottom: 5 }}>
+            {field === 'secretario' ? 'Nome do Secretário(a)' : field.charAt(0).toUpperCase() + field.slice(1)}
+          </label>
+          <input
+            type="text"
+            name={field}
+            value={form[field]}
+            onChange={handleChange}
+            style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
+          />
+          {errors[field] && <span style={{ color: 'red', fontSize: 12 }}>{errors[field]}</span>}
+        </div>
+      ))}
         {/* Grupo de diária */}
         <div style={{ marginBottom: 10 }}>
           <label style={{ display: 'block', marginBottom: 5 }}>Grupo de Diária</label>
