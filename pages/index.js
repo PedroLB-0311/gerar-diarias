@@ -123,15 +123,18 @@ export default function DiariaPage() {
       tabela = valoresDiarias.capital;
     }
   
-    const valores = tabela[grupo];
-    if (trip.comPernoite) return { diaria: valores.acima8h, pernoite: valores.pernoite };
-    if (trip.diariaAcima08) return { diaria: valores.acima8h, pernoite: 0 };
-    if (trip.diaria04_08) return { diaria: valores.entre4e8h, pernoite: 0 };
+    // Garante que números inexistentes virem 0 (evita NaN)
+    const valores = (tabela && tabela[grupo]) ? tabela[grupo] : {};
+    const acima8h   = Number(valores.acima8h)   || 0;
+    const entre4e8h = Number(valores.entre4e8h) || 0; // em "outroEstado" é 0 mesmo
+    const pernoite  = Number(valores.pernoite)  || 0;
+  
+    if (trip.comPernoite) return { diaria: acima8h, pernoite };
+    if (trip.diariaAcima08) return { diaria: acima8h, pernoite: 0 };
+    if (trip.diaria04_08)   return { diaria: entre4e8h, pernoite: 0 };
   
     return { diaria: 0, pernoite: 0 };
   };
-  
-  
 
   const updateTotals = (trip) => {
     const { diaria, pernoite } = getValorDiaria(form.grupo, trip);
@@ -349,7 +352,7 @@ const validateForm = () => {
           margin: [0, 6, 0, 4]
         },
         {
-          text: `${checkboxes[0]} Entre 04 e 08 horas     ${checkboxes[1]} Acima de 08 horas\n${checkboxes[2]} Outro Estado Acima De 8 horas \n${checkboxes[3]} Com pernoite`,
+          text: `${checkboxes[0]} Entre 04 e 08 horas     ${checkboxes[1]} Acima de 08 horas\n${checkboxes[2]} Outro Estado  \n${checkboxes[3]} Com pernoite`,
           margin: [0, 0, 0, 6],
           fontSize: 10,
         }
@@ -766,12 +769,14 @@ const validateForm = () => {
                   /> Acima de 08 horas
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', fontSize: 14, color: '#374151' }}>
-                  <input
-                    type="checkbox"
-                    checked={trip.outroEstado}
-                    onChange={(e) => handleChange(e, index, 'outroEstado')}
-                    style={{ marginRight: 8 }}
-                  /> Outro Estado Acima De 8 horas
+                <input
+
+ type="checkbox"
+ checked={trip.outroEstado}
+ onChange={(e) => handleChange(e, index, 'outroEstado')}
+ style={{ marginRight: 8 }}
+/> Outro Estado 
+
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', fontSize: 14, color: '#374151' }}>
                   <input
