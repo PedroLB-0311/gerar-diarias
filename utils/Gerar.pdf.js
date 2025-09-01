@@ -4,7 +4,7 @@ import pdfFonts from "pdfmake/build/vfs_fonts";
 pdfMake.vfs = pdfFonts.vfs;
 
 function formatDate(dateStr) {
-  if (!dateStr) return "________________";
+  if (!dateStr) return "";
   const [y, m, d] = dateStr.split("-");
   return `${d}/${m}/${y}`;
 }
@@ -30,63 +30,114 @@ export async function gerarPDF(form, logoMunicipio = "") {
     }
   }
 
-  form.trips.forEach((trip, index) => {
-    const docDefinition = {
-      pageSize: "A4",
-      pageMargins: [30, 40, 30, 40],
-      header: logoBase64
-        ? { image: logoBase64, width: 120, alignment: "left", margin: [30, 15, 0, 0] }
-        : { text: "", margin: [0, 20] },
+  const content = [];
 
-      content: [
-        { text: "PROPOSTA DE CONCESSÃO E PAGAMENTO DE DIÁRIA", style: "header", margin: [0, 5, 0, 5] },
-        { text: "Nos Termos do Decreto n. 56/2025", style: "subheader", margin: [0, 0, 0, 10] },
-
-        { text: "A) IDENTIFICAÇÃO DO SERVIDOR", style: "sectionTitle", margin: [0, 5, 0, 5] },
-        { text: `Servidor: ${form.servidor || "________________"}`, style: "field" },
-        { text: `Cargo: ${form.cargo || "________________"}`, style: "field" },
-        { text: `Matrícula: ${form.matricula || "________________"}`, style: "field" },
-        { text: `Grupo: ${form.grupo || "________________"}`, style: "field", margin: [0, 0, 0, 10] },
-
-        { text: "B) DESTINO E PERÍODO DE AFASTAMENTO", style: "sectionTitle", margin: [0, 5, 0, 5] },
-        { text: `Destino(s): ${trip.destinos.map(d => `${d.nome} (${d.uf || "SC"})`).join(" / ")}`, style: "field" },
-        { text: `Data Saída: ${formatDate(trip.saida)} | Hora: ${trip.horaSaida || "____"}`, style: "field" },
-        { text: `Data Retorno: ${formatDate(trip.retorno)} | Hora: ${trip.horaRetorno || "____"}`, style: "field" },
-
-        { text: "C) DIÁRIA E PERNOITE", style: "sectionTitle", margin: [0, 5, 0, 5] },
-        { text: `${trip.diaria04_08 ? "(x)" : "( )"} Entre 04 e 08 horas     ${trip.diariaAcima08 ? "(x)" : "( )"} Acima de 08 horas`, style: "field" },
-        { text: `${trip.outroEstado ? "(x)" : "( )"} Outro Estado – Afastamento acima de 08 horas`, style: "field" },
-        { text: `${trip.comPernoite ? "(x)" : "( )"} Com pernoite`, style: "field", margin: [0, 0, 0, 10] },
-        
-        { text: "D) TRANSPORTE", style: "sectionTitle", margin: [0, 5, 0, 5] },
-        { text: `Transporte: ${trip.veiculo?.tipo || "____"} | Placa: ${trip.veiculo?.placa || "____"}`, style: "field", margin: [0, 0, 0, 10] },
-
-        { text: "E) TOTALIZADORES", style: "sectionTitle", margin: [0, 5, 0, 5] },
-        { text: `Diária: R$ ${trip.totalDiaria.toFixed(2)}`, style: "field" },
-        { text: `Pernoite: R$ ${trip.totalPernoite.toFixed(2)}`, style: "field" },
-        { text: `Valor Total: R$ ${(trip.totalDiaria + trip.totalPernoite).toFixed(2)}`, style: "field" },
-
-        { text: "F) JUSTIFICATIVA DO DESLOCAMENTO", style: "sectionTitle", margin: [0, 5, 0, 5] },
-        { canvas: [{ type: "rect", x: 0, y: 0, w: 515, h: 40, lineWidth: 1, lineColor: "#000" }] },
-        { text: trip.justificativa || "________________________________________", style: "field", margin: [5, -35, 5, 30] },
-        { text: `________________________________________ ${form.servidor || "Nome do Servidor"} – CPF ${form.cpf || "____"}`, style: "field", margin: [0, 0, 0, 10] },
-
-        { text: "G) AUTORIZAÇÃO", style: "sectionTitle", margin: [0, 5, 0, 5] },
-        { text: `Autorizo o servidor requerente a afastar-se da sede do município e perceber as diárias.`, style: "field", margin: [0, 0, 0, 10] },
-        { text: `________________________________________`, style: "field" },
-        { text: `Secretário(a) de ${form.secretaria || "____"} ${form.secretario || "____"}`, style: "field", margin: [0, 0, 0, 10] },
-
-        { text: `São Ludgero-SC, ${new Date().getDate()} de ${new Date().toLocaleString("pt-BR", { month: "long" })} de ${new Date().getFullYear()}`, style: "footer", alignment: "right" },
+  // Logo no topo da primeira página (esquerda)
+  if (logoBase64) {
+    content.push({
+      columns: [
+        { image: logoBase64, width: 120, alignment: "left" },
+        { width: "*", text: "" }
       ],
-      styles: {
-        header: { fontSize: 12, bold: true, alignment: "center" },
-        subheader: { fontSize: 10, italics: true, alignment: "center" },
-        sectionTitle: { fontSize: 10, bold: true, decoration: "underline" },
-        field: { fontSize: 10, margin: [0, 3, 0, 3] },
-        footer: { fontSize: 10, italics: true },
-      },
-    };
+      margin: [0, 0, 0, 10]
+    });
+  }
 
-    pdfMake.createPdf(docDefinition).download(`proposta_diaria_viagem_${index + 1}.pdf`);
+  // Título e subheader
+  content.push({ text: "PROPOSTA DE CONCESSÃO E PAGAMENTO DE DIÁRIA", style: "header", margin: [0, 5, 0, 5] });
+  content.push({ text: "Nos Termos do Decreto n. 56/2025", style: "subheader", margin: [0, 0, 0, 10] });
+
+  // Dados do servidor (uma vez)
+  content.push({ text: "A) IDENTIFICAÇÃO DO SERVIDOR", style: "sectionTitle", margin: [0, 5, 0, 5] });
+
+  if (form.servidor) content.push({ text: `Servidor: ${form.servidor}`, style: "field" });
+  if (form.cargo) content.push({ text: `Cargo: ${form.cargo}`, style: "field" });
+  if (form.matricula) content.push({ text: `Matrícula: ${form.matricula}`, style: "field" });
+  if (form.grupo) content.push({ text: `Tipo de Diária: Grupo ${form.grupo}`, style: "field", margin: [0, 0, 0, 10] });
+
+  // Iterar pelas viagens
+  form.viagens.forEach((trip, index) => {
+    content.push({ text: `B) DESTINO E PERÍODO DE AFASTAMENTO – Viagem ${index + 1}`, style: "sectionTitle", margin: [0, 5, 0, 5] });
+    if (trip.destinos && trip.destinos.length > 0) {
+      content.push({ text: `Destino(s): ${trip.destinos.map(d => `${d.nome}${d.uf ? ` (${d.uf})` : ""}`).join(" / ")}`, style: "field" });
+    }
+    if (trip.saida) content.push({ text: `Data Saída: ${formatDate(trip.saida)} ${trip.horaSaida ? "| Hora: " + trip.horaSaida : ""}`, style: "field" });
+    if (trip.retorno) content.push({ text: `Data Retorno: ${formatDate(trip.retorno)} ${trip.horaRetorno ? "| Hora: " + trip.horaRetorno : ""}`, style: "field" });
+
+    content.push({ text: "C) DIÁRIA E PERNOITE", style: "sectionTitle", margin: [0, 5, 0, 5] });
+    content.push({ text: `${trip.diaria04_08 ? "(x)" : "( )"} Entre 04 e 08 horas     ${trip.diariaAcima08 ? "(x)" : "( )"} Acima de 08 horas`, style: "field" });
+    content.push({ text: `${trip.outroEstado ? "(x)" : "( )"} Outro Estado – Afastamento acima de 08 horas`, style: "field" });
+    content.push({ text: `${trip.comPernoite ? "(x)" : "( )"} Com pernoite`, style: "field", margin: [0, 0, 0, 10] });
+
+    if (trip.veiculo?.tipo || trip.veiculo?.placa) {
+      content.push({ text: "D) TRANSPORTE", style: "sectionTitle", margin: [0, 5, 0, 5] });
+      content.push({ text: `Transporte: ${trip.veiculo?.tipo || ""} ${trip.veiculo?.placa ? "| Placa: " + trip.veiculo.placa : ""}`, style: "field", margin: [0, 0, 0, 10] });
+    }
+
+    content.push({ text: "E) TOTALIZADORES", style: "sectionTitle", margin: [0, 5, 0, 5] });
+    if (trip.totalDiaria) content.push({ text: `Diária: R$ ${trip.totalDiaria.toFixed(2)}`, style: "field" });
+    if (trip.totalPernoite) content.push({ text: `Pernoite: R$ ${trip.totalPernoite.toFixed(2)}`, style: "field" });
+    if (trip.totalDiaria || trip.totalPernoite) content.push({ text: `Valor Total: R$ ${(trip.totalDiaria + trip.totalPernoite).toFixed(2)}`, style: "field", margin: [0, 0, 0, 10] });
+
+    if (trip.justificativa) {
+      content.push({ text: "F) JUSTIFICATIVA DO DESLOCAMENTO", style: "sectionTitle", margin: [0, 5, 0, 5] });
+      content.push({ text: trip.justificativa, style: "field", margin: [0, 0, 0, 10] });
+    }
+
+    content.push({ canvas: [{ type: "line", x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: "#000" }] });
   });
+
+  // Assinaturas centralizadas
+  content.push({ text: "G) AUTORIZAÇÃO", style: "sectionTitle", margin: [0, 15, 0, 5] });
+  content.push({ text: `Autorizo o servidor requerente a afastar-se da sede do município e perceber as diárias.`, style: "field", margin: [0, 0, 0, 15] });
+
+  // Servidor
+  content.push({
+    columns: [
+      { width: "*", text: "" },
+      {
+        width: "auto",
+        stack: [
+          { text: `________________________________________`, style: "field", alignment: "center" },
+          { text: `Servidor: ${form.servidor || ""}`, style: "field", alignment: "center" }
+        ]
+      },
+      { width: "*", text: "" }
+    ]
+  });
+
+  content.push({ text: "\n\n" });
+
+  // Secretário
+content.push({
+  columns: [
+    { width: "*", text: "" },
+    {
+      width: "auto",
+      stack: [
+        { text: `________________________________________`, style: "field", alignment: "center" },
+        { text: ` ${form.secretaria || ""}`, style: "field", alignment: "center" },
+        { text: `${form.secretario || ""}`, style: "field", alignment: "center" } // Nome do secretário abaixo da secretaria
+      ]
+    },
+    { width: "*", text: "" }
+  ]
+});
+
+  content.push({ text: `\nSão Ludgero-SC, ${new Date().getDate()} de ${new Date().toLocaleString("pt-BR", { month: "long" })} de ${new Date().getFullYear()}`, style: "footer", alignment: "right" });
+
+  const docDefinition = {
+    pageSize: "A4",
+    pageMargins: [30, 40, 30, 40],
+    content,
+    styles: {
+      header: { fontSize: 12, bold: true, alignment: "center" },
+      subheader: { fontSize: 10, italics: true, alignment: "center" },
+      sectionTitle: { fontSize: 10, bold: true, decoration: "underline" },
+      field: { fontSize: 10, margin: [0, 3, 0, 3] },
+      footer: { fontSize: 10, italics: true },
+    },
+  };
+
+  pdfMake.createPdf(docDefinition).download(`proposta_diaria_${form.servidor || "servidor"}.pdf`);
 }
