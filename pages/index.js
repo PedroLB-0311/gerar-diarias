@@ -204,9 +204,7 @@ export default function FormularioDiarias() {
     if (contexto === "OUTROS_ESTADOS") return TABELA.OUTROS_ESTADOS.pernoite[g];
     return TABELA.ESTADO.pernoite[g];
   }
-
   function calcularTrip(trip, localGrupo) {
-    // distância máxima entre origem e destinos
     let distanciaKm = 0;
     trip.destinos.forEach(d => {
       if (typeof d.latitude === "number" && typeof d.longitude === "number") {
@@ -214,70 +212,73 @@ export default function FormularioDiarias() {
         if (dist > distanciaKm) distanciaKm = dist;
       }
     });
-
+  
     const dtIni = combineDateTime(trip.saida, trip.horaSaida);
     const dtFim = combineDateTime(trip.retorno, trip.horaRetorno);
     if (!dtIni || !dtFim || dtFim < dtIni) {
       return { ...trip, distanciaKm, totalDiaria: 0, totalPernoite: 0,
         tipoDiariaResumo: { qtd4a8: 0, qtdAcima8: 0, valor4a8: 0, valorAcima8: 0 },
-        tiposDetalhados: []
+        tiposDetalhados: [],
+        diariasDetalhadas: []
       };
     }
-
+  
     const contexto = classificarContexto(trip.destinos, distanciaKm).tipo;
-
-    // percorre dia a dia (itera enquanto cursor <= dtFim)
+  
     let totalDiaria = 0;
     let qtd4a8 = 0, qtdAcima8 = 0;
     let valor4a8 = 0, valorAcima8 = 0;
-
+    const diariasDetalhadas = [];
+  
     let cursor = new Date(dtIni);
     while (cursor <= dtFim) {
       const diaBase = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
       const horas = hoursInDay(dtIni, dtFim, diaBase);
-
-      let faixa = null; // "h4a8" | "gt8"
+  
+      let faixa = null;
       if (horas >= 8) faixa = "gt8";
       else if (horas >= 4) faixa = "h4a8";
-
+  
       if (faixa) {
         const unit = obterValores(localGrupo, contexto, faixa);
-        let diariaDia = unit;
-        if (isWeekendLocal(diaBase)) diariaDia *= 2; // fim de semana em dobro
-        totalDiaria += diariaDia;
-
+        totalDiaria += unit;
+  
         if (faixa === "h4a8") { qtd4a8 += 1; valor4a8 = unit; }
         if (faixa === "gt8")  { qtdAcima8 += 1; valorAcima8 = unit; }
+  
+        diariasDetalhadas.push({
+          dia: diaBase.toISOString().split("T")[0],
+          horas,
+          faixa,
+          valor: unit,
+          fimDeSemana: isWeekendLocal(diaBase)
+        });
       }
-
+  
       cursor = addDays(diaBase, 1);
     }
-
+  
     const diasInteiros = Math.floor((parseYMD(trip.retorno) - parseYMD(trip.saida)) / 86400000) + 1;
     const comPernoite = diasInteiros > 1;
     const totalPernoite = comPernoite ? obterPernoite(localGrupo, contexto) : 0;
-
-    // --- tipos detalhados (agora que qtds e totalPernoite já existem)
+  
     const tiposDetalhados = [];
     if (qtd4a8 > 0) tiposDetalhados.push("Entre 4 e 8 horas");
     if (qtdAcima8 > 0) tiposDetalhados.push("Mais de 8 horas");
     if (totalPernoite > 0) tiposDetalhados.push("Com pernoite");
     if (contexto === "OUTROS_ESTADOS") tiposDetalhados.push("Outro Estado");
-
+  
     return {
       ...trip,
       distanciaKm,
       totalDiaria,
       totalPernoite,
-      tipoDiariaResumo: {
-        qtd4a8,
-        qtdAcima8,
-        valor4a8,
-        valorAcima8
-      },
-      tiposDetalhados
+      tipoDiariaResumo: { qtd4a8, qtdAcima8, valor4a8, valorAcima8 },
+      tiposDetalhados,
+      diariasDetalhadas // <-- novo campo
     };
   }
+  
 
   // --- Quando o grupo mudar, recalcula todas usando o grupo separado
   useEffect(() => {
@@ -369,9 +370,11 @@ export default function FormularioDiarias() {
         totalDiaria: t.totalDiaria,
         totalPernoite: t.totalPernoite,
         tipoDiariaResumo: t.tipoDiariaResumo,
-        tiposDetalhados: t.tiposDetalhados
+        tiposDetalhados: t.tiposDetalhados,
+        diariasDetalhadas: t.diariasDetalhadas // <-- enviado para PDF
       }))
     };
+    
     gerarPDF(dadosConsolidados);
   };
 
