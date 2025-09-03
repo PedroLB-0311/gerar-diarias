@@ -60,9 +60,22 @@
 
 .inputGroup {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 5px;
   margin-bottom: 15px;
+}
+
+.inputGroupDestino {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+}
+
+.inputWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .inputField, .selectField, .textareaField {
@@ -81,11 +94,15 @@
   outline: none;
 }
 
+.inputDestino {
+  max-width: 150px; /* Campo de destino reduzido */
+}
+
 /* --- BOTÕES --- */
 .button {
   background: #2f7a38; /* Verde */
   border: none;
-  padding: 10px 20px;
+  padding: 12px 24px; /* Aumentado para melhor usabilidade */
   border-radius: 6px;
   cursor: pointer;
   display: flex;
@@ -104,7 +121,7 @@
 .buttonDanger {
   background: #a30000; /* Vermelho */
   border: none;
-  padding: 10px 20px;
+  padding: 12px 24px; /* Aumentado para consistência */
   border-radius: 6px;
   cursor: pointer;
   display: flex;
@@ -120,11 +137,18 @@
   transform: translateY(-1px);
 }
 
+.buttonPrimary {
+  background: #1a5c28; /* Cor mais escura para destacar */
+  padding: 14px 28px; /* Maior para ação principal */
+}
+
 /* Garante que texto e ícones dentro dos botões sejam sempre brancos */
 .button, 
 .buttonDanger, 
+.buttonPrimary,
 .button *, 
-.buttonDanger * {
+.buttonDanger *, 
+.buttonPrimary * {
   color: white !important;
   fill: white !important;
   stroke: white !important;
@@ -136,7 +160,7 @@
   border: 1px solid #a3c4a3;
   border-radius: 6px;
   z-index: 10;
-  width: 100%;
+  width: 150px; /* Alinhado com o tamanho do inputDestino */
   max-height: 200px;
   overflow-y: auto;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -157,6 +181,7 @@
 
 .sectionHeader {
   display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: 10px;
   color: #1a5c28;
@@ -175,8 +200,26 @@
 }
 
 .destinoContainer {
+  display: flex;
+  align-items: flex-end;
+  gap: 15px;
   margin-bottom: 20px;
   position: relative;
+}
+
+.buttonWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-self: flex-start; /* Alinha com o topo dos inputs */
+  margin-top: 27px; /* Compensa a altura do label para alinhamento */
+  min-width: 120px; /* Garante espaço consistente */
+}
+
+.destinoActions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 10px;
 }
 
 .saidasContainer {
@@ -188,22 +231,26 @@
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 15px;
   margin-bottom: 20px;
-  align-items: center;
+  align-items: flex-start; /* Alinha todos os elementos no topo */
+}
+
+.saidaActions {
+  grid-column: 1 / -1; /* Ocupa toda a largura da grade */
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 10px;
 }
 
 .justificativaContainer {
   margin-top: 20px;
-}
-
-.justificativaContainer label {
-  color: #1a5c28;
-  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 
 .textareaField {
   width: 100%;
   resize: vertical;
-  margin-top: 10px;
 }
 
 .summary {
@@ -217,8 +264,9 @@
 
 .actionButtons {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end; /* Alinha à direita */
   align-items: center;
+  gap: 15px; /* Maior espaçamento entre botões */
   margin-top: 30px;
 }
 
@@ -237,4 +285,10 @@
   text-align: center;
   font-size: 14px;
   border-top: 4px solid #2f7a38;
+}
+
+.label {
+  color: #1a5c28;
+  font-weight: 500;
+  font-size: 14px;
 }
