@@ -1,0 +1,219 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-5px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.containerWrapper {
+  max-width: 1000px;
+  margin: 30px auto;
+  font-family: 'Roboto', sans-serif;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.header {
+  background: #1a5c28;
+  color: white;
+  padding: 15px 30px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 4px solid #2f7a38;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.container {
+  padding: 30px;
+  background: linear-gradient(135deg, #f5f7f5, #ffffff);
+  animation: fadeIn 0.4s ease-in;
+}
+
+.formSection {
+  margin-bottom: 30px;
+}
+
+.formSection h2 {
+  color: #1a5c28;
+  font-size: 20px;
+  margin-bottom: 20px;
+}
+
+.inputGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.inputGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.inputField, .selectField, .textareaField {
+  border: 1px solid #a3c4a3;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 15px;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+}
+
+.inputField:focus, .selectField:focus, .textareaField:focus {
+  border-color: #2f7a38;
+  box-shadow: 0 0 6px rgba(47, 122, 56, 0.2);
+  outline: none;
+}
+
+.button {
+  background: #2f7a38;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.button:hover {
+  background: #256b2d;
+  transform: translateY(-1px);
+}
+
+.buttonDanger {
+  background: #a30000;
+}
+
+.buttonDanger:hover {
+  background: #7a0000;
+}
+
+.suggestionBox {
+  position: absolute;
+  background: white;
+  border: 1px solid #a3c4a3;
+  border-radius: 6px;
+  z-index: 10;
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  margin-top: 5px;
+}
+
+.suggestionItem {
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.suggestionItem:hover, .suggestionItem.active {
+  background: #2f7a38;
+  color: white;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #1a5c28;
+  margin-bottom: 20px;
+  font-size: 18px;
+  font-weight: 500;
+  animation: slideIn 0.3s ease;
+}
+
+.tripSection {
+  padding: 20px;
+  border: 1px solid #a3c4a3;
+  border-radius: 8px;
+  background: #f9fbf9;
+  margin-bottom: 25px;
+}
+
+.destinoContainer {
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.saidasContainer {
+  margin: 20px 0;
+}
+
+.saidaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.justificativaContainer {
+  margin-top: 20px;
+}
+
+.justificativaContainer label {
+  color: #1a5c28;
+  font-weight: 500;
+}
+
+.textareaField {
+  width: 100%;
+  resize: vertical;
+  margin-top: 10px;
+}
+
+.summary {
+  background: #e6f0ea;
+  padding: 15px;
+  border-radius: 6px;
+  font-size: 15px;
+  margin-top: 15px;
+  border-left: 4px solid #2f7a38;
+}
+
+.actionButtons {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 30px;
+}
+
+.totalGeral {
+  margin-top: 20px;
+  font-weight: 500;
+  color: #1a5c28;
+  text-align: right;
+  font-size: 16px;
+}
+
+.footer {
+  background: #1a5c28;
+  color: white;
+  padding: 10px 30px;
+  text-align: center;
+  font-size: 14px;
+  border-top: 4px solid #2f7a38;
+}

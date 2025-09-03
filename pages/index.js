@@ -1,14 +1,16 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ORIGEM, calcularDistanciaORS } from "../utils/ors";
 import { gerarPDF } from "../utils/Gerar.pdf";
 import { HiPlus, HiTrash, HiLocationMarker, HiCalendar, HiClock, HiDocumentText, HiDownload, HiTruck } from "react-icons/hi";
+import styles from "./FormularioDiarias.module.css";
 
 function parseYMD(dateStr) {
   if (!dateStr) return null;
   const [y, m, d] = dateStr.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
+
 function combineDateTime(dateStr, timeStr) {
   const d = parseYMD(dateStr);
   if (!d) return null;
@@ -16,11 +18,13 @@ function combineDateTime(dateStr, timeStr) {
   d.setHours(Number(hh), Number(mm), 0, 0);
   return d;
 }
+
 function addDays(date, n) {
   const d = new Date(date);
   d.setDate(d.getDate() + n);
   return d;
 }
+
 function isWeekend(date) {
   const day = date.getDay();
   return day === 0 || day === 6;
@@ -79,6 +83,9 @@ export default function FormularioDiarias() {
     ],
   });
 
+  // Usar um ref para evitar loop infinito
+  const isCalculating = useRef(false);
+
   useEffect(() => {
     fetch("https://raw.githubusercontent.com/kelvins/municipios-brasileiros/main/json/municipios.json")
       .then((res) => res.json())
@@ -111,7 +118,7 @@ export default function FormularioDiarias() {
     } else setSugestoes([]);
   };
 
-  const selecionarDestino = async (destino) => {
+  const selecionarDestino = (destino) => {
     setForm((prev) => {
       const trips = [...prev.trips];
       trips[focusedDestino.iViagem].destinos[focusedDestino.iDestino] = destino;
@@ -182,7 +189,6 @@ export default function FormularioDiarias() {
   }, []);
 
   const addSaida = useCallback((iViagem) => {
-    console.log(`Adding saída for viagem ${iViagem}`); // Debug log
     setForm((prev) => {
       const trips = [...prev.trips];
       const diaBase = trips[iViagem].saidas.length > 0 ? trips[iViagem].saidas[0].diaSaida : "";
@@ -236,7 +242,7 @@ export default function FormularioDiarias() {
     return TABELA.ESTADO.pernoite[g];
   };
 
-  const calcularTrip = async (trip, localGrupo) => {
+  const calcularTrip = useCallback(async (trip, localGrupo) => {
     let distanciaKm = 0;
     for (const d of trip.destinos) {
       const dist = await calcularDistanciaORS(d);
@@ -286,21 +292,23 @@ export default function FormularioDiarias() {
 
       if (faixa) {
         const unit = obterValores(localGrupo, contexto, faixa);
+        const multiplier = isWeekend(diaBase) ? 2 : 1; // Dobrar diária em finais de semana
+        const effectiveUnit = unit * multiplier;
         if (unit > 0) {
-          totalDiaria += unit;
+          totalDiaria += effectiveUnit;
           if (faixa === "h4a8") {
             qtd4a8++;
-            valor4a8 = unit;
+            valor4a8 = unit; // Armazena o valor base, sem multiplicador
           }
           if (faixa === "gt8") {
             qtdAcima8++;
-            valorAcima8 = unit;
+            valorAcima8 = unit; // Armazena o valor base, sem multiplicador
           }
           diariasDetalhadas.push({
             dia: diaISO,
             horas,
             faixa,
-            valor: unit,
+            valor: effectiveUnit,
             fimDeSemana: isWeekend(diaBase),
           });
         }
@@ -311,10 +319,11 @@ export default function FormularioDiarias() {
     const totalPernoite = totalNoites * unitPernoite;
 
     const tiposDetalhados = [];
-    if (qtd4a8 > 0) tiposDetalhados.push("Entre 4 e 8 horas");
-    if (qtdAcima8 > 0) tiposDetalhados.push("Mais de 8 horas");
-    if (totalPernoite > 0) tiposDetalhados.push("Com pernoite");
+    if (qtd4a8 > 0) tiposDetalhados.push(`Entre 4 e 8 horas${valor4a8 > 0 ? ` (R$ ${valor4a8.toFixed(2)})` : ""}`);
+    if (qtdAcima8 > 0) tiposDetalhados.push(`Mais de 8 horas${valorAcima8 > 0 ? ` (R$ ${valorAcima8.toFixed(2)})` : ""}`);
+    if (totalPernoite > 0) tiposDetalhados.push(`Com pernoite (R$ ${unitPernoite.toFixed(2)})`);
     if (contexto === "OUTROS_ESTADOS") tiposDetalhados.push("Outro Estado");
+    if (diariasDetalhadas.some((d) => d.fimDeSemana)) tiposDetalhados.push("Diária dobrada em fim de semana");
 
     return {
       ...trip,
@@ -325,18 +334,44 @@ export default function FormularioDiarias() {
       tiposDetalhados,
       diariasDetalhadas,
     };
-  };
+  }, []);
 
-  useEffect(() => {
-    (async () => {
+  const recalcularTrips = useCallback(async () => {
+    if (isCalculating.current) return; // Evita múltiplas chamadas simultâneas
+    isCalculating.current = true;
+
+    try {
+      const effectiveGrupo = grupo === "B Acompanhando" ? "A" : grupo;
       const newTrips = [];
       for (const t of form.trips) {
-        const tCalc = await calcularTrip(t, grupo);
+        const tCalc = await calcularTrip(t, effectiveGrupo);
         newTrips.push(tCalc);
       }
-      setForm((prev) => ({ ...prev, trips: newTrips }));
-    })();
-  }, [grupo, JSON.stringify(form.trips.map((t) => ({ destinos: t.destinos, saidas: t.saidas })))]);
+
+      // Comparar para evitar atualizações desnecessárias
+      setForm((prev) => {
+        const isSame = prev.trips.every((trip, i) => {
+          const newTrip = newTrips[i];
+          return (
+            trip.distanciaKm === newTrip.distanciaKm &&
+            trip.totalDiaria === newTrip.totalDiaria &&
+            trip.totalPernoite === newTrip.totalPernoite &&
+            JSON.stringify(trip.tipoDiariaResumo) === JSON.stringify(newTrip.tipoDiariaResumo) &&
+            JSON.stringify(trip.tiposDetalhados) === JSON.stringify(newTrip.tiposDetalhados) &&
+            JSON.stringify(trip.diariasDetalhadas) === JSON.stringify(newTrip.diariasDetalhadas)
+          );
+        });
+        if (isSame) return prev; // Não atualiza se nada mudou
+        return { ...prev, trips: newTrips };
+      });
+    } finally {
+      isCalculating.current = false;
+    }
+  }, [grupo, form.trips, calcularTrip]);
+
+  useEffect(() => {
+    recalcularTrips();
+  }, [grupo, recalcularTrips]); // Dependência apenas no grupo e na função memoizada
 
   const validarFormulario = () => {
     if (!form.servidor.trim()) return alert("Preencha o servidor"), false;
@@ -352,8 +387,17 @@ export default function FormularioDiarias() {
       for (let j = 0; j < t.destinos.length; j++) {
         if (!t.destinos[j].nome.trim()) return alert(`Preencha o destino ${j + 1} da viagem ${i + 1}`), false;
       }
-      const temSaidaValida = (t.saidas || []).some((s) => s.diaSaida && s.horaSaida && s.diaRetorno && s.horaRetorno);
-      if (!temSaidaValida) return alert(`Informe ao menos uma saída completa na viagem ${i + 1}`), false;
+      const temSaidaValida = (t.saidas || []).some((s, j) => {
+        if (!s.diaSaida || !s.horaSaida || !s.diaRetorno || !s.horaRetorno) return false;
+        const ini = combineDateTime(s.diaSaida, s.horaSaida);
+        const fim = combineDateTime(s.diaRetorno, s.horaRetorno);
+        if (!ini || !fim || fim <= ini) {
+          alert(`Datas inválidas na saída ${j + 1} da viagem ${i + 1}. Verifique se a data de retorno é posterior à de saída.`);
+          return false;
+        }
+        return true;
+      });
+      if (!temSaidaValida) return alert(`Informe ao menos uma saída completa e válida na viagem ${i + 1}`), false;
     }
     return true;
   };
@@ -366,219 +410,92 @@ export default function FormularioDiarias() {
   const totalGeral = form.trips.reduce((acc, t) => acc + (t.totalDiaria || 0) + (t.totalPernoite || 0), 0);
 
   return (
-    <div style={{
-      maxWidth: "1000px",
-      margin: "30px auto",
-      fontFamily: "'Roboto', sans-serif",
-      background: "#ffffff",
-      borderRadius: "10px",
-      boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
-      overflow: "hidden"
-    }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateX(-5px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        .container {
-          padding: 30px;
-          background: linear-gradient(135deg, #f5f7f5, #ffffff);
-          animation: fadeIn 0.4s ease-in;
-        }
-        .header {
-          background: #1a5c28;
-          color: white;
-          padding: 15px 30px;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          border-bottom: 4px solid #2f7a38;
-        }
-        .input-field, .select-field, .textarea-field {
-          border: 1px solid #a3c4a3;
-          border-radius: 6px;
-          padding: 10px;
-          font-size: 15px;
-          width: 100%;
-          box-sizing: border-box;
-          transition: all 0.3s ease;
-        }
-        .input-field:focus, .select-field:focus, .textarea-field:focus {
-          border-color: #2f7a38;
-          box-shadow: 0 0 6px rgba(47, 122, 56, 0.2);
-          outline: none;
-        }
-        .button {
-          background: #2f7a38;
-          color: white;
-          border: none;
-          padding: 10px 20px;
-          border-radius: 6px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 15px;
-          font-weight: 500;
-          transition: background 0.3s ease, transform 0.2s ease;
-        }
-        .button:hover {
-          background: #256b2d;
-          transform: translateY(-1px);
-        }
-        .button-danger {
-          background: #a30000;
-        }
-        .button-danger:hover {
-          background: #7a0000;
-        }
-        .suggestion-item {
-          padding: 10px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          font-size: 14px;
-        }
-        .suggestion-item:hover, .suggestion-item.active {
-          background: #2f7a38;
-          color: white;
-        }
-        .section-header {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          color: #1a5c28;
-          margin-bottom: 20px;
-          font-size: 18px;
-          font-weight: 500;
-          animation: slideIn 0.3s ease;
-        }
-        .summary {
-          background: #e6f0ea;
-          padding: 15px;
-          border-radius: 6px;
-          font-size: 15px;
-          margin-top: 15px;
-          border-left: 4px solid #2f7a38;
-        }
-        .footer {
-          background: #1a5c28;
-          color: white;
-          padding: 10px 30px;
-          text-align: center;
-          font-size: 14px;
-          border-top: 4px solid #2f7a38;
-        }
-        .form-section {
-          margin-bottom: 30px;
-        }
-        .input-group {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 15px;
-        }
-        .trip-section {
-          padding: 20px;
-          border: 1px solid #a3c4a3;
-          border-radius: 8px;
-          background: #f9fbf9;
-          margin-bottom: 25px;
-        }
-      `}</style>
-
-      <header className="header">
+    <div className={styles.containerWrapper}>
+      <header className={styles.header}>
         <HiDocumentText size={28} />
-        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>
-          Proposta de Diárias - Prefeitura de São Ludgero
-        </h1>
+        <h1>Proposta de Diárias - Prefeitura de São Ludgero</h1>
       </header>
 
-      <div className="container">
-        <div className="form-section">
-          <h2 style={{ color: "#1a5c28", fontSize: "20px", marginBottom: "20px" }}>
-            Dados do Servidor
-          </h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px" }}>
-            <div className="input-group">
+      <div className={styles.container}>
+        <div className={styles.formSection}>
+          <h2>Dados do Servidor</h2>
+          <div className={styles.inputGrid}>
+            <div className={styles.inputGroup}>
               <HiDocumentText size={20} color="#2f7a38" />
               <input
-                className="input-field"
+                className={styles.inputField}
                 placeholder="Servidor"
                 value={form.servidor}
                 onChange={(e) => setForm({ ...form, servidor: e.target.value })}
               />
             </div>
-            <div className="input-group">
+            <div className={styles.inputGroup}>
               <HiDocumentText size={20} color="#2f7a38" />
               <input
-                className="input-field"
+                className={styles.inputField}
                 placeholder="CPF"
                 value={form.cpf}
                 onChange={(e) => setForm({ ...form, cpf: e.target.value })}
               />
             </div>
-            <div className="input-group">
+            <div className={styles.inputGroup}>
               <HiDocumentText size={20} color="#2f7a38" />
               <input
-                className="input-field"
+                className={styles.inputField}
                 placeholder="Cargo"
                 value={form.cargo}
                 onChange={(e) => setForm({ ...form, cargo: e.target.value })}
               />
             </div>
-            <div className="input-group">
+            <div className={styles.inputGroup}>
               <HiDocumentText size={20} color="#2f7a38" />
               <input
-                className="input-field"
+                className={styles.inputField}
                 placeholder="Matrícula"
                 value={form.matricula}
                 onChange={(e) => setForm({ ...form, matricula: e.target.value })}
               />
             </div>
-            <div className="input-group">
+            <div className={styles.inputGroup}>
               <HiDocumentText size={20} color="#2f7a38" />
               <input
-                className="input-field"
+                className={styles.inputField}
                 placeholder="Secretaria"
                 value={form.secretaria}
                 onChange={(e) => setForm({ ...form, secretaria: e.target.value })}
               />
             </div>
-            <div className="input-group">
+            <div className={styles.inputGroup}>
               <HiDocumentText size={20} color="#2f7a38" />
               <input
-                className="input-field"
+                className={styles.inputField}
                 placeholder="Secretário"
                 value={form.secretario}
                 onChange={(e) => setForm({ ...form, secretario: e.target.value })}
               />
             </div>
-            <div className="input-group">
+            <div className={styles.inputGroup}>
               <HiDocumentText size={20} color="#2f7a38" />
               <select
-                className="select-field"
+                className={styles.selectField}
                 value={grupo}
                 onChange={(e) => setGrupo(e.target.value)}
               >
                 <option value="A">Grupo A</option>
                 <option value="B">Grupo B</option>
+                <option value="B Acompanhando">Grupo B Acompanhando</option>
               </select>
             </div>
           </div>
         </div>
 
         {form.trips.map((trip, iViagem) => (
-          <div key={`viagem-${iViagem}`} className="trip-section">
-            <div className="section-header">
+          <div key={`viagem-${iViagem}`} className={styles.tripSection}>
+            <div className={styles.sectionHeader}>
               <HiLocationMarker size={22} color="#2f7a38" />
               <h3>Viagem {iViagem + 1}</h3>
               <button
-                className="button button-danger"
+                className={styles.buttonDanger}
                 onClick={() => removeViagem(iViagem)}
               >
                 <HiTrash size={16} /> Excluir Viagem
@@ -586,40 +503,29 @@ export default function FormularioDiarias() {
             </div>
 
             {trip.destinos.map((dest, iDestino) => (
-              <div key={`destino-${iViagem}-${iDestino}`} style={{ marginBottom: "20px", position: "relative" }}>
-                <div className="input-group">
+              <div key={`destino-${iViagem}-${iDestino}`} className={styles.destinoContainer}>
+                <div className={styles.inputGroup}>
                   <HiLocationMarker size={20} color="#2f7a38" />
                   <input
-                    className="input-field"
+                    className={styles.inputField}
                     placeholder="Destino (ex.: Florianópolis)"
                     value={dest.nome}
                     onChange={(e) => handleDestinoChange(e, iViagem, iDestino)}
                     onKeyDown={handleDestinoKeyDown}
                   />
                   <button
-                    className="button button-danger"
+                    className={styles.buttonDanger}
                     onClick={() => removeDestino(iViagem, iDestino)}
                   >
-                    <HiTrash size={16} /> 
+                    <HiTrash size={16} />
                   </button>
                 </div>
                 {focusedDestino.iViagem === iViagem && focusedDestino.iDestino === iDestino && sugestoes.length > 0 && (
-                  <div style={{
-                    position: "absolute",
-                    background: "white",
-                    border: "1px solid #a3c4a3",
-                    borderRadius: "6px",
-                    zIndex: 10,
-                    width: "100%",
-                    maxHeight: "200px",
-                    overflowY: "auto",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                    marginTop: "5px"
-                  }}>
+                  <div className={styles.suggestionBox}>
                     {sugestoes.map((s, i) => (
                       <div
                         key={`sugestao-${i}`}
-                        className={`suggestion-item ${i === highlightedIndex ? 'active' : ''}`}
+                        className={`${styles.suggestionItem} ${i === highlightedIndex ? styles.active : ''}`}
                         onMouseDown={() => selecionarDestino(s)}
                       >
                         {s.nome} - {s.uf}
@@ -630,26 +536,19 @@ export default function FormularioDiarias() {
               </div>
             ))}
             <button
-              className="button"
+              className={styles.button}
               onClick={() => addDestino(iViagem)}
-              style={{ marginBottom: "20px" }}
             >
               <HiPlus size={16} /> Adicionar Destino
             </button>
 
-            <div style={{ margin: "20px 0" }}>
+            <div className={styles.saidasContainer}>
               {trip.saidas?.map((s, iSaida) => (
-                <div key={`saida-${iViagem}-${iSaida}`} style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-                  gap: "15px",
-                  marginBottom: "20px",
-                  alignItems: "center"
-                }}>
-                  <div className="input-group">
+                <div key={`saida-${iViagem}-${iSaida}`} className={styles.saidaGrid}>
+                  <div className={styles.inputGroup}>
                     <HiCalendar size={20} color="#2f7a38" />
                     <input
-                      className="input-field"
+                      className={styles.inputField}
                       type="date"
                       value={s.diaSaida || ""}
                       onChange={(e) =>
@@ -661,10 +560,10 @@ export default function FormularioDiarias() {
                       }
                     />
                   </div>
-                  <div className="input-group">
+                  <div className={styles.inputGroup}>
                     <HiClock size={20} color="#2f7a38" />
                     <input
-                      className="input-field"
+                      className={styles.inputField}
                       type="time"
                       value={s.horaSaida || ""}
                       onChange={(e) =>
@@ -676,10 +575,10 @@ export default function FormularioDiarias() {
                       }
                     />
                   </div>
-                  <div className="input-group">
+                  <div className={styles.inputGroup}>
                     <HiCalendar size={20} color="#2f7a38" />
                     <input
-                      className="input-field"
+                      className={styles.inputField}
                       type="date"
                       value={s.diaRetorno || ""}
                       onChange={(e) =>
@@ -691,10 +590,10 @@ export default function FormularioDiarias() {
                       }
                     />
                   </div>
-                  <div className="input-group">
+                  <div className={styles.inputGroup}>
                     <HiClock size={20} color="#2f7a38" />
                     <input
-                      className="input-field"
+                      className={styles.inputField}
                       type="time"
                       value={s.horaRetorno || ""}
                       onChange={(e) =>
@@ -706,10 +605,10 @@ export default function FormularioDiarias() {
                       }
                     />
                   </div>
-                  <div className="input-group">
+                  <div className={styles.inputGroup}>
                     <HiTruck size={20} color="#2f7a38" />
                     <select
-                      className="select-field"
+                      className={styles.selectField}
                       value={s.veiculo?.tipo || "Oficial"}
                       onChange={(e) =>
                         setForm((prev) => {
@@ -723,10 +622,10 @@ export default function FormularioDiarias() {
                       <option value="Particular">Particular</option>
                     </select>
                   </div>
-                  <div className="input-group">
+                  <div className={styles.inputGroup}>
                     <HiTruck size={20} color="#2f7a38" />
                     <input
-                      className="input-field"
+                      className={styles.inputField}
                       placeholder="Placa"
                       value={s.veiculo?.placa || ""}
                       onChange={(e) =>
@@ -739,7 +638,7 @@ export default function FormularioDiarias() {
                     />
                   </div>
                   <button
-                    className="button button-danger"
+                    className={styles.buttonDanger}
                     onClick={() => removeSaida(iViagem, iSaida)}
                   >
                     <HiTrash size={15} /> Remover Saída
@@ -747,20 +646,20 @@ export default function FormularioDiarias() {
                 </div>
               ))}
               <button
-                className="button"
+                className={styles.button}
                 onClick={() => addSaida(iViagem)}
               >
                 <HiPlus size={16} /> Adicionar Saída
               </button>
             </div>
 
-            <div style={{ marginTop: "20px" }}>
-              <div className="input-group">
+            <div className={styles.justificativaContainer}>
+              <div className={styles.inputGroup}>
                 <HiDocumentText size={20} color="#2f7a38" />
-                <label style={{ color: "#1a5c28", fontWeight: "500" }}>Justificativa:</label>
+                <label>Justificativa:</label>
               </div>
               <textarea
-                className="textarea-field"
+                className={styles.textareaField}
                 placeholder="Digite a justificativa da viagem..."
                 value={trip.justificativa}
                 onChange={(e) =>
@@ -771,32 +670,34 @@ export default function FormularioDiarias() {
                   })
                 }
                 rows={4}
-                style={{ width: "100%", resize: "vertical", marginTop: "10px" }}
               />
             </div>
 
-            <div className="summary">
+            <div className={styles.summary}>
               <strong>Distância:</strong> {(trip.distanciaKm || 0).toFixed(1)} km |{" "}
               <strong>Diária:</strong> R$ {(trip.totalDiaria || 0).toFixed(2)} |{" "}
               <strong>Pernoite:</strong> R$ {(trip.totalPernoite || 0).toFixed(2)}
+              {trip.diariasDetalhadas.some((d) => d.fimDeSemana) && (
+                <span> | <strong>Nota:</strong> Diárias dobradas em finais de semana</span>
+              )}
             </div>
           </div>
         ))}
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "30px" }}>
-          <button className="button" onClick={addViagem}>
+        <div className={styles.actionButtons}>
+          <button className={styles.button} onClick={addViagem}>
             <HiPlus size={16} /> Adicionar Viagem
           </button>
-          <button className="button" onClick={handleGerarPDF}>
+          <button className={styles.button} onClick={handleGerarPDF}>
             <HiDownload size={16} /> Gerar PDF
           </button>
         </div>
-        <p style={{ marginTop: "20px", fontWeight: "500", color: "#1a5c28", textAlign: "right", fontSize: "16px" }}>
+        <p className={styles.totalGeral}>
           Total Geral: R$ {totalGeral.toFixed(2)}
         </p>
       </div>
 
-      <footer className="footer">
+      <footer className={styles.footer}>
         Prefeitura Municipal de São Ludgero - Sistema de Gestão de Diárias - Pedro Ivo Lembeck Bianco
       </footer>
     </div>
