@@ -797,7 +797,7 @@ export default function FormularioDiarias() {
       </div>
 
       <footer className="footer">
-        Prefeitura Municipal de São Ludgero - Sistema de Gestão de Diárias
+        Prefeitura Municipal de São Ludgero - Sistema de Gestão de Diárias - Pedro Ivo Lembeck Bianco
       </footer>
     </div>
   );
