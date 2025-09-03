@@ -81,9 +81,9 @@
   outline: none;
 }
 
+/* --- BOTÕES --- */
 .button {
-  background: #2f7a38;
-  color: white;
+  background: #2f7a38; /* Verde */
   border: none;
   padding: 10px 20px;
   border-radius: 6px;
@@ -102,11 +102,32 @@
 }
 
 .buttonDanger {
-  background: #a30000;
+  background: #a30000; /* Vermelho */
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  transition: background 0.3s ease, transform 0.2s ease;
 }
 
 .buttonDanger:hover {
   background: #7a0000;
+  transform: translateY(-1px);
+}
+
+/* Garante que texto e ícones dentro dos botões sejam sempre brancos */
+.button, 
+.buttonDanger, 
+.button *, 
+.buttonDanger * {
+  color: white !important;
+  fill: white !important;
+  stroke: white !important;
 }
 
 .suggestionBox {
