@@ -32,7 +32,7 @@ export async function gerarPDF(form, logoUrl = "") {
 
   const content = [];
 
-  // Logo no topo (maior)
+  // Logo no topo
   if (logoBase64) {
     content.push({
       columns: [
@@ -56,25 +56,34 @@ export async function gerarPDF(form, logoUrl = "") {
   if (form.grupo) content.push({ text: `Tipo de Diária: Grupo ${form.grupo}`, style: "field", margin: [0, 0, 0, 10] });
 
   // Iterar pelas viagens
-  form.viagens.forEach((trip, index) => {
-    content.push({ text: `B) DESTINO E PERÍODO DE AFASTAMENTO – Viagem ${index + 1}`, style: "sectionTitle", margin: [0, 5, 0, 5] });
+  form.trips.forEach((trip, index) => {
+    content.push({ text: `B) DESTINO E PERÍODO DE AFASTAMENTO `, style: "sectionTitle", margin: [0, 5, 0, 5] });
 
+    // Destinos
     if (trip.destinos && trip.destinos.length > 0) {
       content.push({ text: `Destino(s): ${trip.destinos.map(d => `${d.nome}${d.uf ? ` (${d.uf})` : ""}`).join(" / ")}`, style: "field" });
     }
-    if (trip.saida) content.push({ text: `Data Saída: ${formatDate(trip.saida)}${trip.horaSaida ? " | Hora da Saida : " + trip.horaSaida : ""}`, style: "field" });
-    if (trip.retorno) content.push({ text: `Data Retorno: ${formatDate(trip.retorno)}${trip.horaRetorno ? " | Hora Do Retorno: " + trip.horaRetorno : ""}`, style: "field" });
+
+    // Saídas (múltiplas)
+    if (trip.saidas && trip.saidas.length > 0) {
+      trip.saidas.forEach((saida, iSaida) => {
+        content.push({
+          text: `Saída : ${formatDate(saida.diaSaida)}${saida.horaSaida ? ` às ${saida.horaSaida}` : ""} | Retorno: ${formatDate(saida.diaRetorno)}${saida.horaRetorno ? ` às ${saida.horaRetorno}` : ""}`,
+          style: "field",
+        });
+      });
+    }
 
     // Checkboxes baseados em tiposDetalhados
     const tiposDetalhados = trip.tiposDetalhados || [];
     const diaria04_08 = tiposDetalhados.includes("Entre 4 e 8 horas");
-    const diariaAcima08 = tiposDetalhados.includes("Acima de 8 horas");
+    const diariaAcima08 = tiposDetalhados.includes("Mais de 8 horas");
     const outroEstado = tiposDetalhados.includes("Outro Estado");
-    const comPernoite = !!trip.comPernoite;
+    const comPernoite = trip.totalPernoite > 0;
 
     content.push({ text: "C) DIÁRIA E PERNOITE", style: "sectionTitle", margin: [0, 5, 0, 5] });
     content.push({
-      text: `${diaria04_08 ? "(x)" : "( )"} Entre 04 e 08 horas     ${diariaAcima08 ? "(x)" : "( )"} Acima de 08 horas`,
+      text: `${diaria04_08 ? "(x)" : "( )"} Entre 04 e 08 horas     ${diariaAcima08 ? "(x)" : "( )"} Mais de 08 horas`,
       style: "field",
     });
     content.push({
@@ -84,9 +93,18 @@ export async function gerarPDF(form, logoUrl = "") {
     });
 
     // Transporte
-    if (trip.veiculo?.tipo || trip.veiculo?.placa) {
+    if (trip.saidas && trip.saidas.length > 0) {
       content.push({ text: "D) TRANSPORTE", style: "sectionTitle", margin: [0, 5, 0, 5] });
-      content.push({ text: `Transporte: ${trip.veiculo?.tipo || ""}${trip.veiculo?.placa ? " | Placa: " + trip.veiculo.placa : ""}`, style: "field", margin: [0, 0, 0, 10] });
+      trip.saidas.forEach((saida, iSaida) => {
+        if (saida.veiculo?.tipo || saida.veiculo?.placa) {
+          content.push({
+            text: `Saída ${iSaida + 1}: ${saida.veiculo?.tipo || ""}${saida.veiculo?.placa ? ` | Placa: ${saida.veiculo.placa}` : ""}`,
+            style: "field",
+          });
+        }
+      });
+      // Adiciona espaçamento após a seção de transporte
+      content.push({ text: "", margin: [0, 0, 0, 10] });
     }
 
     // Totalizadores
@@ -120,11 +138,11 @@ export async function gerarPDF(form, logoUrl = "") {
         stack: [
           { text: `________________________________________`, style: "field", alignment: "center" },
           { text: `Servidor: ${form.servidor || ""}`, style: "field", alignment: "center" },
-          { text: `CPF: ${form.cpf || ""}`, style: "field", alignment: "center" }
-        ]
+          { text: `CPF: ${form.cpf || ""}`, style: "field", alignment: "center" },
+        ],
       },
-      { width: "*", text: "" }
-    ]
+      { width: "*", text: "" },
+    ],
   });
 
   content.push({ text: "\n\n" });
@@ -138,15 +156,19 @@ export async function gerarPDF(form, logoUrl = "") {
         stack: [
           { text: `________________________________________`, style: "field", alignment: "center" },
           { text: `${form.secretaria || ""}`, style: "field", alignment: "center" },
-          { text: `${form.secretario || ""}`, style: "field", alignment: "center" }
-        ]
+          { text: `${form.secretario || ""}`, style: "field", alignment: "center" },
+        ],
       },
-      { width: "*", text: "" }
-    ]
+      { width: "*", text: "" },
+    ],
   });
 
   // Data
-  content.push({ text: `\nSão Ludgero-SC, ${new Date().getDate()} de ${new Date().toLocaleString("pt-BR", { month: "long" })} de ${new Date().getFullYear()}`, style: "footer", alignment: "right" });
+  content.push({
+    text: `\nSão Ludgero-SC, ${new Date().getDate()} de ${new Date().toLocaleString("pt-BR", { month: "long" })} de ${new Date().getFullYear()}`,
+    style: "footer",
+    alignment: "right",
+  });
 
   const docDefinition = {
     pageSize: "A4",
