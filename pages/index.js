@@ -58,7 +58,6 @@ export default function FormularioDiarias() {
   const [sugestoes, setSugestoes] = useState([]);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [focusedDestino, setFocusedDestino] = useState({ iViagem: null, iDestino: null });
-  const [grupo, setGrupo] = useState("A");
   const [form, setForm] = useState({
     servidor: "",
     cpf: "",
@@ -66,6 +65,7 @@ export default function FormularioDiarias() {
     matricula: "",
     secretaria: "",
     secretario: "",
+    grupo: "A", // Added grupo to form state
     trips: [
       {
         destinos: [{ nome: "", latitude: null, longitude: null, uf: "SC" }],
@@ -341,7 +341,7 @@ export default function FormularioDiarias() {
     isCalculating.current = true;
 
     try {
-      const effectiveGrupo = grupo === "B Acompanhando" ? "A" : grupo;
+      const effectiveGrupo = form.grupo === "B Acompanhando" ? "A" : form.grupo; // Use form.grupo
       const newTrips = [];
       for (const t of form.trips) {
         const tCalc = await calcularTrip(t, effectiveGrupo);
@@ -366,11 +366,11 @@ export default function FormularioDiarias() {
     } finally {
       isCalculating.current = false;
     }
-  }, [grupo, form.trips, calcularTrip]);
+  }, [form.grupo, form.trips, calcularTrip]); // Updated dependency to use form.grupo
 
   useEffect(() => {
     recalcularTrips();
-  }, [grupo, recalcularTrips]);
+  }, [form.grupo, recalcularTrips]); // Updated dependency to use form.grupo
 
   const validarFormulario = () => {
     if (!form.servidor.trim()) return alert("Preencha o servidor"), false;
@@ -379,6 +379,7 @@ export default function FormularioDiarias() {
     if (!form.matricula.trim()) return alert("Preencha a matrícula"), false;
     if (!form.secretaria.trim()) return alert("Preencha a secretaria"), false;
     if (!form.secretario.trim()) return alert("Preencha o secretário"), false;
+    if (!form.grupo) return alert("Selecione o grupo"), false; // Added validation for grupo
 
     for (let i = 0; i < form.trips.length; i++) {
       const t = form.trips[i];
@@ -405,7 +406,7 @@ export default function FormularioDiarias() {
 
   const handleGerarPDF = useCallback(() => {
     if (!validarFormulario()) return;
-    gerarPDF(form);
+    gerarPDF(form); // form now includes grupo
   }, [form]);
 
   const totalGeral = form.trips.reduce((acc, t) => acc + (t.totalDiaria || 0) + (t.totalPernoite || 0), 0);
@@ -506,8 +507,8 @@ export default function FormularioDiarias() {
                 <select
                   id="grupo"
                   className={styles.selectField}
-                  value={grupo}
-                  onChange={(e) => setGrupo(e.target.value)}
+                  value={form.grupo}
+                  onChange={(e) => setForm({ ...form, grupo: e.target.value })} // Update form.grupo
                 >
                   <option value="A">Grupo A</option>
                   <option value="B">Grupo B</option>
@@ -763,7 +764,7 @@ export default function FormularioDiarias() {
       </div>
 
       <footer className={styles.footer}>
-        Prefeitura Municipal de São Ludgero - Sistema de Gestão de Diárias - Pedro Ivo Lembeck Bianco
+        Prefeitura Municipal de São Ludgero - Sistema de Gestão de Diárias 
       </footer>
     </div>
   );
